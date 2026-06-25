@@ -19,3 +19,10 @@ export const editApplication = defineUpdate<ApplicationState, [EditRequest]>('ed
 
 /** Fire-and-forget lender-partner callback that resumes syndication (SPEC §4.5). */
 export const lenderCallback = defineSignal<[LenderCallback]>('lenderCallback');
+
+/**
+ * Partner sales-channel intake (SPEC §4.5, the "hub"). Delivered via
+ * signalWithStart so ingestion is idempotent — a new application starts, an
+ * existing one just records the touch. No queue, no DLQ, no lost messages.
+ */
+export const partnerIntake = defineSignal<[{ source: string }]>('partnerIntake');

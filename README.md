@@ -4,10 +4,12 @@ Temporal orchestrating BMO's existing AWS Lambdas for a mortgage-application pip
 **TypeScript only**. See [CLAUDE.md](CLAUDE.md) for the contract and [SPEC.md](SPEC.md) for the
 full design.
 
-> **Status: M1 (local happy path) complete.** The entity workflow runs the five pipeline steps
-> end-to-end against in-process business-Lambda handlers, with Edit-with-validator field locking,
-> Queries, and the lender-callback Signal all working locally. UI/API (M2+) and cloud/serverless
-> (M5) are not built yet.
+> **Status: M2 complete** (local happy path + driving layer). The entity workflow runs the five
+> pipeline steps end-to-end against in-process business-Lambda handlers, driven through a Fastify
+> **API** and a Vite+React **UI**: specialist console, application list, the observability timeline
+> with a **before/after** (siloed Lambda logs vs. one Temporal trace) toggle, Edit-with-validator
+> field locking with synchronous accept/reject, and **multi-channel partner intake** (signalWithStart).
+> Fault injection + Triage (M3) and cloud/serverless (M5) are not built yet.
 
 ## Layout (monorepo, npm workspaces)
 
@@ -18,7 +20,9 @@ full design.
 | `packages/activities` | The `invoker` abstraction (local in-process \| cloud `@aws-sdk/client-lambda`) + the thin invoker activities. Translates `BusinessError` → `ApplicationFailure`. |
 | `packages/workflows` | `mortgageApplicationWorkflow` (entity workflow) + the Query/Update/Signal definitions. |
 | `packages/worker` | Long-lived `Worker.create()` local entrypoint (the swappable safety-net path; serverless `@temporalio/lambda-worker` entrypoint is M5). |
-| `packages/client` | CLI to drive the demo (stands in for the UI until M2). |
+| `packages/api` | Fastify API wrapping the Temporal client — create / partner-intake / list / get / edit / callback. |
+| `packages/ui` | Vite + React + TS dashboard: specialist console, app list, observability timeline + before/after toggle, edit, partner push. |
+| `packages/client` | CLI to drive the demo from a terminal (alternative to the UI). |
 
 ## Local run
 
@@ -34,7 +38,20 @@ npm run temporal:dev
 # terminal 2 — long-lived worker (runs the Lambda handler code in-process)
 npm run worker:local
 
-# terminal 3 — drive it
+# terminal 3 — API (Temporal client) at :8080
+npm run api
+
+# terminal 4 — UI (Vite dev server) at http://localhost:5173, proxies /api → :8080
+npm run ui
+```
+
+Open **http://localhost:5173** and drive the demo from the UI: create an application, watch the
+one-trace timeline, flip the before/after toggle, try editing `rate` after rate assignment (rejected),
+push from the partner channel, and send the lender callback at syndication.
+
+Terminal-only alternative (CLI, no API/UI):
+
+```bash
 npm run happy-path            # full application end-to-end
 node packages/client/dist/cli.js create --name "Jane Borrower" --phone 416-555-0100
 node packages/client/dist/cli.js get <appId>

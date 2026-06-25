@@ -1,0 +1,17 @@
+{
+  "name": "@bmo/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@bmo/shared": "*",
+    "@bmo/workflows": "*",
+    "@temporalio/client": "~1.18.1",
+    "@fastify/cors": "^11.0.0",
+    "fastify": "^5.8.0"
+  }
+}

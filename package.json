@@ -16,6 +16,8 @@
     "worker:local": "node packages/worker/dist/worker.local.js",
     "client": "node packages/client/dist/cli.js",
     "happy-path": "node packages/client/dist/cli.js happy-path",
+    "api": "node packages/api/dist/server.js",
+    "ui": "npm --workspace @bmo/ui run dev",
     "temporal:dev": "temporal server start-dev"
   },
   "devDependencies": {

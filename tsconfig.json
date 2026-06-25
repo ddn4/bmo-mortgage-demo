@@ -6,6 +6,7 @@
     { "path": "packages/activities" },
     { "path": "packages/workflows" },
     { "path": "packages/worker" },
-    { "path": "packages/client" }
+    { "path": "packages/client" },
+    { "path": "packages/api" }
   ]
 }

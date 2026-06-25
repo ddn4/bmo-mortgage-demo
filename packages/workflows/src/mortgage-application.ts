@@ -12,7 +12,7 @@ import {
 // Type-only import: erased at runtime, so no activity/Lambda/Node code leaks into
 // the workflow sandbox bundle (determinism — temporal-developer gotchas).
 import type * as activities from '@bmo/activities';
-import { editApplication, getApplication, lenderCallback } from './definitions';
+import { editApplication, getApplication, lenderCallback, partnerIntake } from './definitions';
 
 // Standard pipeline activities: short timeout, default-ish retry.
 const { intake, verifyIncomeAndDocuments, customerLookup, creditScore, riskAssessment, assignRate } =
@@ -83,6 +83,12 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   let callback: LenderCallback | undefined;
   setHandler(lenderCallback, (cb: LenderCallback) => {
     callback = cb;
+  });
+
+  // Partner sales-channel ingestion (delivered via signalWithStart). Records the
+  // touch on the same workflow — same workflow type, second channel (the "hub").
+  setHandler(partnerIntake, (info: { source: string }) => {
+    record('partner-intake', 'COMPLETED', `arrived via ${info.source}`);
   });
 
   // --- Step 1: Intake ---
