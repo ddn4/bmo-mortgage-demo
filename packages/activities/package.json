@@ -1,0 +1,16 @@
+{
+  "name": "@bmo/activities",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@bmo/shared": "*",
+    "@bmo/lambdas": "*",
+    "@temporalio/activity": "~1.18.1",
+    "@aws-sdk/client-lambda": "^3.600.0"
+  }
+}

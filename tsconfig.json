@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/lambdas" },
+    { "path": "packages/activities" },
+    { "path": "packages/workflows" },
+    { "path": "packages/worker" },
+    { "path": "packages/client" }
+  ]
+}

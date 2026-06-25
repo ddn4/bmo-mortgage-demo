@@ -1,0 +1,15 @@
+{
+  "name": "@bmo/client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@bmo/shared": "*",
+    "@bmo/workflows": "*",
+    "@temporalio/client": "~1.18.1"
+  }
+}

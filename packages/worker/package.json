@@ -1,0 +1,16 @@
+{
+  "name": "@bmo/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/worker.local.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/worker.local.js"
+  },
+  "dependencies": {
+    "@bmo/shared": "*",
+    "@bmo/workflows": "*",
+    "@bmo/activities": "*",
+    "@temporalio/worker": "~1.18.1"
+  }
+}
