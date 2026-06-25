@@ -48,6 +48,11 @@ export function App() {
     return () => clearInterval(t);
   }, [refreshDetail]);
 
+  // Land on a populated view: select the newest application if none is chosen.
+  useEffect(() => {
+    if (!selectedId && items.length > 0) setSelectedId(items[0].id);
+  }, [items, selectedId]);
+
   return (
     <div className="app">
       <header className="topbar">
