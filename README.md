@@ -4,12 +4,11 @@ Temporal orchestrating BMO's existing AWS Lambdas for a mortgage-application pip
 **TypeScript only**. See [CLAUDE.md](CLAUDE.md) for the contract and [SPEC.md](SPEC.md) for the
 full design.
 
-> **Status: M2 complete** (local happy path + driving layer). The entity workflow runs the five
-> pipeline steps end-to-end against in-process business-Lambda handlers, driven through a Fastify
-> **API** and a Vite+React **UI**: specialist console, application list, the observability timeline
-> with a **before/after** (siloed Lambda logs vs. one Temporal trace) toggle, Edit-with-validator
-> field locking with synchronous accept/reject, and **multi-channel partner intake** (signalWithStart).
-> Fault injection + Triage (M3) and cloud/serverless (M5) are not built yet.
+> **Status: M3 complete** (local happy path + driving layer + resilience). On top of M2, the demo now
+> has **fault injection + recovery and a Triage-&-resolve view**: a UI toggle injects the syndication
+> partner "schema break", Temporal retries the activity with backoff (state preserved), the stuck
+> application surfaces in Triage with its failure reason / payload / event-history link, and clearing
+> the fault lets the next retry succeed and the run resume. Cloud/serverless (M5) is not built yet.
 
 ## Layout (monorepo, npm workspaces)
 
@@ -20,8 +19,8 @@ full design.
 | `packages/activities` | The `invoker` abstraction (local in-process \| cloud `@aws-sdk/client-lambda`) + the thin invoker activities. Translates `BusinessError` → `ApplicationFailure`. |
 | `packages/workflows` | `mortgageApplicationWorkflow` (entity workflow) + the Query/Update/Signal definitions. |
 | `packages/worker` | Long-lived `Worker.create()` local entrypoint (the swappable safety-net path; serverless `@temporalio/lambda-worker` entrypoint is M5). |
-| `packages/api` | Fastify API wrapping the Temporal client — create / partner-intake / list / get / edit / callback. |
-| `packages/ui` | Vite + React + TS dashboard: specialist console, app list, observability timeline + before/after toggle, edit, partner push. |
+| `packages/api` | Fastify API wrapping the Temporal client — create / partner-intake / list / get (+ retrying activities) / edit / callback / triage / fault toggle. |
+| `packages/ui` | Vite + React + TS dashboard: specialist console, app list, observability timeline + before/after toggle, edit, partner push, **Triage & resolve** (fault toggle + stuck apps). |
 | `packages/client` | CLI to drive the demo from a terminal (alternative to the UI). |
 
 ## Local run
@@ -65,7 +64,9 @@ node packages/client/dist/cli.js partner-push --name "Partner Lead"
 | Var | Effect |
 |-----|--------|
 | `BMO_FORCE_DECISION` | `APPROVED` \| `CONDITIONAL` \| `DECLINED` — force the underwriting outcome for a predictable demo. |
-| `BMO_SYNDICATION_FAULT` | `true` to start with the syndication schema break on (resilience demo; retries until cleared). |
+| `BMO_SYNDICATION_FAULT` | `true` to start with the syndication schema break on (also toggled live from the Triage view via the API → worker control plane). |
+| `CONTROL_PORT` | Worker control-plane port for the fault toggle (default 8088). |
+| `WORKER_CONTROL_URL` | Where the API reaches the worker control plane (default `http://localhost:8088`). |
 | `BMO_TRANSIENT_FAILURE_RATE` | `0..1` — inject random transient downstream failures so Temporal's retries are visible. |
 | `WORKER_VERSIONING` | `true` to enable Worker Versioning (PINNED). Requires a current Worker Deployment Version. |
 | `MAX_CONCURRENT_ACTIVITIES` | Caps activity concurrency to *simulate* a single Lambda (default 5). |

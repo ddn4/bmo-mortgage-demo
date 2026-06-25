@@ -1,4 +1,4 @@
-import type { AppListItem, ApplicationState } from './types';
+import type { AppListItem, ApplicationState, TriageItem } from './types';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -22,4 +22,7 @@ export const api = {
   edit: (id: string, field: string, value: unknown) =>
     post<{ accepted: boolean; reason?: string }>(`/api/applications/${id}/edit`, { field, value }),
   callback: (id: string, approved: boolean) => post<{ ok: boolean }>(`/api/applications/${id}/callback`, { approved }),
+  triage: (): Promise<TriageItem[]> => fetch('/api/triage').then((r) => r.json()),
+  getFault: (): Promise<{ syndicationFault: boolean }> => fetch('/api/fault').then((r) => r.json()),
+  setFault: (on: boolean) => post<{ syndicationFault: boolean }>('/api/fault', { on }),
 };

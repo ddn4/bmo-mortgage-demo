@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import { AppList, ApplicationDetail, SpecialistConsole } from './components';
-import type { AppListItem, ApplicationState } from './types';
+import { AppList, ApplicationDetail, SpecialistConsole, TriagePanel } from './components';
+import type { AppListItem, ApplicationState, TriageItem } from './types';
 
 export function App() {
   const [items, setItems] = useState<AppListItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [detail, setDetail] = useState<ApplicationState | undefined>();
+  const [triage, setTriage] = useState<TriageItem[]>([]);
+  const [faultOn, setFaultOn] = useState(false);
 
   const refreshList = useCallback(async () => {
     try {
       setItems(await api.list());
+      setTriage(await api.triage());
+      setFaultOn((await api.getFault()).syndicationFault);
     } catch {
       /* API not up yet — keep polling */
     }
+  }, []);
+
+  const toggleFault = useCallback(async (on: boolean) => {
+    const res = await api.setFault(on);
+    setFaultOn(res.syndicationFault);
   }, []);
 
   const refreshDetail = useCallback(async () => {
@@ -61,6 +70,7 @@ export function App() {
             }}
           />
           <AppList items={items} selectedId={selectedId} onSelect={setSelectedId} />
+          <TriagePanel faultOn={faultOn} onToggleFault={toggleFault} items={triage} onSelect={setSelectedId} />
         </section>
 
         <section className="col-right">

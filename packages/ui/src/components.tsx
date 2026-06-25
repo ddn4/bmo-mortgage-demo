@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from './api';
-import type { AppListItem, ApplicationState, StepEvent } from './types';
+import type { AppListItem, ApplicationState, StepEvent, TriageItem } from './types';
 
 /** Linear pipeline used for the progress strip. */
 export const PIPELINE = [
@@ -263,6 +263,21 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
 
       {state.outcome && <div className="outcome">{state.outcome}</div>}
 
+      {state.pendingActivities && state.pendingActivities.some((p) => p.attempt > 1 || p.lastFailure) && (
+        <div className="retry-banner">
+          {state.pendingActivities
+            .filter((p) => p.attempt > 1 || p.lastFailure)
+            .map((p, i) => (
+              <div key={i}>
+                ⚠ <b>{p.activityType}</b> retrying (attempt {p.attempt}) — {p.lastFailure ?? 'in progress'}
+              </div>
+            ))}
+          <span className="muted">
+            State is preserved — nothing is lost. Clear the fault in Triage and it resumes automatically.
+          </span>
+        </div>
+      )}
+
       <ProgressStrip status={state.status} />
 
       <div className="facts">
@@ -292,6 +307,65 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
         <div className="row">
           <button onClick={() => api.callback(state.id, true).then(onChanged)}>Lender funding callback (approve)</button>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function TriagePanel({
+  faultOn,
+  onToggleFault,
+  items,
+  onSelect,
+}: {
+  faultOn: boolean;
+  onToggleFault: (on: boolean) => void;
+  items: TriageItem[];
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="card triage">
+      <h2>Triage &amp; resolve</h2>
+      <div className="fault-row">
+        <span>Syndication partner schema:</span>
+        <button className={faultOn ? 'danger' : ''} onClick={() => onToggleFault(!faultOn)}>
+          {faultOn ? 'Clear fault' : 'Inject fault'}
+        </button>
+        <span className={faultOn ? 'fault-on' : 'fault-off'}>{faultOn ? 'BROKEN — syndications retrying' : 'healthy'}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="muted">
+          No stuck applications. Inject the fault, then advance an application to syndication to see Temporal retry and
+          hold the state.
+        </p>
+      ) : (
+        items.map((it) => (
+          <div key={it.id} className="stuck" onClick={() => onSelect(it.id)}>
+            <div className="stuck-head">
+              <b>{it.applicant}</b> <span className="mono muted">#{it.id}</span> <StatusBadge status={it.status} />
+            </div>
+            {it.retrying.map((p, i) => (
+              <div key={i} className="stuck-reason">
+                ⚠ {p.activityType} · attempt {p.attempt} · {p.lastFailure}
+              </div>
+            ))}
+            <div className="stuck-payload mono">
+              applicant={it.application.applicant} · rate={it.application.rate ?? '—'}% · lender=
+              {it.application.lenderPartner ?? '—'}
+            </div>
+            <a
+              className="tlink"
+              href={`http://localhost:8233/namespaces/default/workflows/mortgage-app-${it.id}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              event history ↗
+            </a>
+          </div>
+        ))
       )}
     </div>
   );

@@ -10,6 +10,41 @@ import { getClient } from './temporal';
 
 const WORKFLOW_TYPE = 'mortgageApplicationWorkflow';
 const APP_ID_PREFIX = 'mortgage-app-';
+const WORKER_CONTROL_URL = process.env.WORKER_CONTROL_URL ?? 'http://localhost:8088';
+
+interface PendingActivity {
+  activityType?: string;
+  attempt: number;
+  lastFailure?: string;
+}
+
+// Surface retrying/stuck activities from the describe() raw proto. When the
+// syndication fault is on, the activity keeps failing and `attempt` climbs with a
+// `lastFailure` — that's how the Triage view spots a stuck application.
+async function pendingActivitiesFor(handle: {
+  describe: () => Promise<{ raw: unknown }>;
+}): Promise<PendingActivity[]> {
+  try {
+    const desc = await handle.describe();
+    const raw = desc.raw as {
+      pendingActivities?: Array<{
+        activityType?: { name?: string };
+        attempt?: number;
+        lastFailure?: { message?: string };
+      }>;
+    };
+    return (raw.pendingActivities ?? []).map((p) => ({
+      activityType: p.activityType?.name,
+      attempt: p.attempt ?? 1,
+      lastFailure: p.lastFailure?.message,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+const idFromWorkflowId = (workflowId: string): string =>
+  workflowId.startsWith(APP_ID_PREFIX) ? workflowId.slice(APP_ID_PREFIX.length) : workflowId;
 
 interface CreateBody {
   id?: string;
@@ -76,9 +111,7 @@ async function main(): Promise<void> {
     }
     const enriched = await Promise.all(
       executions.map(async (wf) => {
-        const id = wf.workflowId.startsWith(APP_ID_PREFIX)
-          ? wf.workflowId.slice(APP_ID_PREFIX.length)
-          : wf.workflowId;
+        const id = idFromWorkflowId(wf.workflowId);
         const base = {
           id,
           workflowId: wf.workflowId,
@@ -103,16 +136,63 @@ async function main(): Promise<void> {
     return enriched;
   });
 
-  // Full application state + observability timeline.
+  // Full application state + observability timeline + any retrying activities.
   app.get('/api/applications/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const client = await getClient();
+    const handle = client.workflow.getHandle(workflowIdFor(id));
     try {
-      return await client.workflow.getHandle(workflowIdFor(id)).query(getApplication);
+      const state = await handle.query(getApplication);
+      const pendingActivities = await pendingActivitiesFor(handle);
+      return { ...state, pendingActivities };
     } catch (err) {
       reply.code(404);
       return { error: 'not found', detail: (err as Error).message };
     }
+  });
+
+  // Triage: applications currently stuck on a retrying activity (SPEC §5 view 4).
+  app.get('/api/triage', async () => {
+    const client = await getClient();
+    const stuck: unknown[] = [];
+    for await (const wf of client.workflow.list({
+      query: `WorkflowType = '${WORKFLOW_TYPE}' AND ExecutionStatus = 'Running'`,
+    })) {
+      const handle = client.workflow.getHandle(wf.workflowId);
+      const pending = await pendingActivitiesFor(handle);
+      const retrying = pending.filter((p) => p.attempt > 1 || p.lastFailure);
+      if (retrying.length === 0) continue;
+      try {
+        const state = await client.workflow.getHandle(wf.workflowId).query(getApplication);
+        stuck.push({
+          id: idFromWorkflowId(wf.workflowId),
+          applicant: state.application.applicant,
+          status: state.status,
+          channel: state.channel,
+          retrying,
+          application: state.application,
+        });
+      } catch {
+        /* skip apps we can't query */
+      }
+      if (stuck.length >= 50) break;
+    }
+    return stuck;
+  });
+
+  // Fault control plane (forwarded to the worker, which owns the in-process flag).
+  app.get('/api/fault', async () => {
+    const r = await fetch(`${WORKER_CONTROL_URL}/control/fault`);
+    return r.json();
+  });
+
+  app.post('/api/fault', async (req) => {
+    const r = await fetch(`${WORKER_CONTROL_URL}/control/fault`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(req.body ?? {}),
+    });
+    return r.json();
   });
 
   // Edit = Update with validator. Returns synchronous accept/reject for the UI.

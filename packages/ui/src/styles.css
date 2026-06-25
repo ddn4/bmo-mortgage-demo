@@ -113,3 +113,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .edit { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.4rem; }
 .ok { color: var(--ok); font-weight: 600; }
 .rejected { color: var(--bad); font-weight: 600; }
+
+/* Retry banner */
+.retry-banner { margin: 0.8rem 0; padding: 0.6rem 0.8rem; background: #fff3da; border: 1px solid #f0d28a; border-radius: 8px; color: #7a5200; font-size: 0.88rem; }
+.retry-banner b { color: #7a5200; }
+.retry-banner .muted { display: block; margin-top: 0.3rem; }
+
+/* Triage panel */
+.triage .fault-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; font-size: 0.88rem; }
+button.danger { background: var(--bad); }
+button.danger:hover { background: #a82d2d; }
+.fault-on { color: var(--bad); font-weight: 700; }
+.fault-off { color: var(--ok); font-weight: 600; }
+.stuck { border: 1px solid #f0d28a; background: #fffdf6; border-radius: 8px; padding: 0.55rem 0.7rem; margin-bottom: 0.5rem; cursor: pointer; }
+.stuck:hover { background: #fff7e6; }
+.stuck-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; }
+.stuck-reason { color: var(--bad); font-size: 0.82rem; }
+.stuck-payload { font-size: 0.76rem; color: var(--muted); margin: 0.3rem 0; }

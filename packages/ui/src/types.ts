@@ -20,6 +20,12 @@ export interface ApplicationData {
   lenderPartner?: string;
 }
 
+export interface PendingActivity {
+  activityType?: string;
+  attempt: number;
+  lastFailure?: string;
+}
+
 export interface ApplicationState {
   id: string;
   status: string;
@@ -29,6 +35,16 @@ export interface ApplicationState {
   timeline: StepEvent[];
   lockedFields: string[];
   outcome?: string;
+  pendingActivities?: PendingActivity[];
+}
+
+export interface TriageItem {
+  id: string;
+  applicant: string;
+  status: string;
+  channel: string;
+  retrying: PendingActivity[];
+  application: ApplicationData;
 }
 
 export interface AppListItem {

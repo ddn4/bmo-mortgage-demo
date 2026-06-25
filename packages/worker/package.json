@@ -11,6 +11,7 @@
     "@bmo/shared": "*",
     "@bmo/workflows": "*",
     "@bmo/activities": "*",
+    "@bmo/lambdas": "*",
     "@temporalio/worker": "~1.18.1"
   }
 }

@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import { NativeConnection, Worker } from '@temporalio/worker';
 import * as activities from '@bmo/activities';
 import { DEFAULT_BUILD_ID, DEPLOYMENT_NAME, TASK_QUEUE } from '@bmo/shared';
+import { startControlServer } from './control-server';
 
 const BUILD_ID = process.env.BMO_BUILD_ID ?? DEFAULT_BUILD_ID;
 
@@ -53,6 +54,9 @@ async function run(): Promise<void> {
         }
       : {}),
   });
+
+  // Control plane so the API can toggle the syndication fault (SPEC §4.4).
+  startControlServer();
 
   console.log(
     `[worker] polling '${TASK_QUEUE}' @ ${address} ` +
