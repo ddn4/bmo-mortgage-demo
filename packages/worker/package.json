@@ -12,6 +12,7 @@
     "@bmo/workflows": "*",
     "@bmo/activities": "*",
     "@bmo/lambdas": "*",
+    "@temporalio/client": "~1.18.1",
     "@temporalio/worker": "~1.18.1"
   }
 }

@@ -15,7 +15,8 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 }
 
 export const api = {
-  list: (): Promise<AppListItem[]> => fetch('/api/applications').then((r) => r.json()),
+  list: (status?: string): Promise<AppListItem[]> =>
+    fetch(`/api/applications${status ? `?status=${encodeURIComponent(status)}` : ''}`).then((r) => r.json()),
   get: (id: string): Promise<ApplicationState> => fetch(`/api/applications/${id}`).then((r) => r.json()),
   create: (body: CreateBody) => post<{ id: string }>('/api/applications', body),
   partner: (body: CreateBody) => post<{ id: string }>('/api/applications/partner', body),
@@ -25,4 +26,6 @@ export const api = {
   triage: (): Promise<TriageItem[]> => fetch('/api/triage').then((r) => r.json()),
   getFault: (): Promise<{ syndicationFault: boolean }> => fetch('/api/fault').then((r) => r.json()),
   setFault: (on: boolean) => post<{ syndicationFault: boolean }>('/api/fault', { on }),
+  burst: (count: number) => post<{ started: number }>('/api/burst', { count }),
+  source: (): Promise<{ path: string; code: string }> => fetch('/api/source').then((r) => r.json()),
 };

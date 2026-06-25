@@ -39,3 +39,15 @@ export type LambdaName = (typeof LAMBDA)[keyof typeof LAMBDA];
 
 /** Risk-sensitive fields locked once status >= RATE_ASSIGNED (SPEC §4.2). */
 export const RISK_SENSITIVE_FIELDS: readonly string[] = ['income', 'creditScore', 'riskTier', 'rate'];
+
+/**
+ * Custom Search Attributes upserted by the workflow for list/filter (SPEC §4.6).
+ * Registered automatically against the local dev server on worker boot; on
+ * Temporal Cloud they are created via the Cloud UI / tcld (M5).
+ */
+export const SEARCH_ATTR = {
+  STATUS: 'applicationStatus',
+  CHANNEL: 'channel',
+} as const;
+
+export const SEARCH_ATTRIBUTES: readonly string[] = [SEARCH_ATTR.STATUS, SEARCH_ATTR.CHANNEL];

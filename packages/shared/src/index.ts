@@ -9,6 +9,8 @@ export {
   DEFAULT_BUILD_ID,
   LAMBDA,
   RISK_SENSITIVE_FIELDS,
+  SEARCH_ATTR,
+  SEARCH_ATTRIBUTES,
   workflowIdFor,
 } from './constants';
 export type { LambdaName } from './constants';

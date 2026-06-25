@@ -97,18 +97,32 @@ export function SpecialistConsole({ onCreated }: { onCreated: (id: string) => vo
 
 // ---------------------------------------------------------------------------
 
+const FILTERABLE = [...PIPELINE, 'NEEDS_REVIEW'];
+
 export function AppList({
   items,
   selectedId,
   onSelect,
+  statusFilter,
+  onStatusFilter,
 }: {
   items: AppListItem[];
   selectedId?: string;
   onSelect: (id: string) => void;
+  statusFilter: string;
+  onStatusFilter: (s: string) => void;
 }) {
   return (
     <div className="card">
-      <h2>Applications ({items.length})</h2>
+      <div className="list-head">
+        <h2>Applications ({items.length})</h2>
+        <select className="filter" value={statusFilter} onChange={(e) => onStatusFilter(e.target.value)} title="Filter by applicationStatus search attribute">
+          <option value="">all statuses</option>
+          {FILTERABLE.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
       <div className="list">
         {items.length === 0 && <p className="muted">No applications yet — create one above.</p>}
         {items.map((it) => (
@@ -366,6 +380,102 @@ export function TriagePanel({
             </a>
           </div>
         ))
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const TERMINAL = new Set(['COMPLETED']);
+
+/** Illustrative cost model: always-warm worker fleet vs. serverless scale-to-zero. */
+function CostModel() {
+  // Assumptions (stated, editable in code): an orchestration worker fleet that
+  // today runs as always-warm/provisioned Lambdas during business hours.
+  const workers = 4;
+  const memGb = 1769 / 1024; // 1 full vCPU
+  const warmHours = 11; // 8–12 hrs/day warm (SPEC framing)
+  const businessDays = 22;
+  const gbsPrice = 0.0000166667; // Lambda GB-second (on-demand, USD)
+
+  const alwaysWarm = workers * memGb * warmHours * 3600 * businessDays * gbsPrice;
+  // Serverless: only the seconds the worker is actually executing tasks.
+  const activeSecPerDay = 900; // ~ aggregate worker-active seconds across the day
+  const serverless = memGb * activeSecPerDay * businessDays * gbsPrice;
+  const saved = Math.round((1 - serverless / alwaysWarm) * 100);
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+
+  return (
+    <div className="cost">
+      <div className="cost-row">
+        <div className="cost-cell warm">
+          <b>Always-warm fleet</b>
+          <span>{usd(alwaysWarm)}<i>/mo</i></span>
+          <small>{workers} workers · warm {warmHours}h/day</small>
+        </div>
+        <div className="cost-cell serverless">
+          <b>Serverless (scale-to-zero)</b>
+          <span>{usd(serverless)}<i>/mo</i></span>
+          <small>billed on active seconds only</small>
+        </div>
+      </div>
+      <div className="cost-bar"><div className="cost-bar-fill" style={{ width: `${100 - saved}%` }} /></div>
+      <div className="cost-saved">{saved}% lower · no cold-start tax · scales from zero</div>
+      <small className="muted">Illustrative model — real numbers land in the cloud phase (M5).</small>
+    </div>
+  );
+}
+
+export function OperationsPanel({ items, onBurst }: { items: AppListItem[]; onBurst: (n: number) => void }) {
+  const [n, setN] = useState(30);
+  const [bursting, setBursting] = useState(false);
+  const inFlight = items.filter((i) => i.status && !TERMINAL.has(i.status)).length;
+  const completed = items.filter((i) => i.status === 'COMPLETED').length;
+  const review = items.filter((i) => i.status === 'NEEDS_REVIEW').length;
+
+  const burst = async () => {
+    setBursting(true);
+    try {
+      await Promise.resolve(onBurst(n));
+    } finally {
+      setBursting(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Operations &amp; cost</h2>
+      <div className="readouts">
+        <div><b>In-flight</b><span>{inFlight}</span></div>
+        <div><b>Completed</b><span>{completed}</span></div>
+        <div><b>Needs review</b><span className={review ? 'warn-num' : ''}>{review}</span></div>
+      </div>
+      <div className="row burst-row">
+        <span className="mono muted">burst</span>
+        <input type="number" min={1} max={200} value={n} onChange={(e) => setN(Number(e.target.value))} />
+        <button disabled={bursting} onClick={burst}>Start {n} applications</button>
+      </div>
+      <CostModel />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function CodeRevealPanel({ code }: { code: string }) {
+  const [open, setOpen] = useState(false);
+  const lines = code ? code.split('\n').length : 0;
+  return (
+    <div className="card code-reveal">
+      <div className="code-head" onClick={() => setOpen((o) => !o)}>
+        <h2>Workflow source — the durability code your engineers own</h2>
+        <span className="mono muted">{open ? 'hide' : `reveal · ${lines} lines of readable TypeScript ▾`}</span>
+      </div>
+      {open && (
+        <pre className="code">
+          <code>{code || 'loading…'}</code>
+        </pre>
       )}
     </div>
   );

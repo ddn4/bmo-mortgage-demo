@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
-import { TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
+import { SEARCH_ATTR, TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
 // Type-only: arg/return typing without loading the workflow implementation here.
 import type { mortgageApplicationWorkflow } from '@bmo/workflows';
 // Runtime Query/Signal/Update definitions (safe to import outside a workflow).
@@ -45,6 +47,19 @@ async function pendingActivitiesFor(handle: {
 
 const idFromWorkflowId = (workflowId: string): string =>
   workflowId.startsWith(APP_ID_PREFIX) ? workflowId.slice(APP_ID_PREFIX.length) : workflowId;
+
+// The actual workflow source, served verbatim for the code-reveal beat (SPEC §5 view 5).
+const WORKFLOW_SOURCE_PATH = path.join(
+  path.dirname(require.resolve('@bmo/workflows/package.json')),
+  'src',
+  'mortgage-application.ts',
+);
+
+// Names for burst/presenter mode so the fleet looks realistic.
+const BURST_NAMES = [
+  'Amara Okafor', 'Liam Tremblay', 'Sofia Rossi', 'Noah Patel', 'Mei Lin', 'Diego Fernández',
+  'Hannah Schmidt', 'Yuki Tanaka', 'Omar Haddad', 'Chloe Dubois', 'Raj Gupta', 'Elena Petrova',
+];
 
 interface CreateBody {
   id?: string;
@@ -100,12 +115,42 @@ async function main(): Promise<void> {
     return { id, workflowId: handle.workflowId, channel: 'PARTNER_QUEUE' };
   });
 
-  // List applications (enriched with app-level state via query — demo scale).
-  app.get('/api/applications', async () => {
+  // Burst / presenter mode: start N applications at once for the scale story.
+  app.post('/api/burst', async (req) => {
+    const count = Math.max(1, Math.min(200, Number((req.body as { count?: number })?.count ?? 25)));
+    const client = await getClient();
+    const ids = await Promise.all(
+      Array.from({ length: count }, async (_, i) => {
+        const id = randomUUID().slice(0, 8);
+        const name = `${BURST_NAMES[i % BURST_NAMES.length]} ${i + 1}`;
+        await client.workflow.start<typeof mortgageApplicationWorkflow>(WORKFLOW_TYPE, {
+          workflowId: workflowIdFor(id),
+          taskQueue: TASK_QUEUE,
+          args: [buildInput(id, { name, incomeDocType: i % 3 === 0 ? 'GIG' : 'T4' }, 'SPECIALIST')],
+        });
+        return id;
+      }),
+    );
+    return { started: ids.length };
+  });
+
+  // Code reveal: the actual workflow source for the skill-gap talk track.
+  app.get('/api/source', async () => {
+    const code = await readFile(WORKFLOW_SOURCE_PATH, 'utf8');
+    return { path: 'packages/workflows/src/mortgage-application.ts', code };
+  });
+
+  // List applications, optionally filtered by the applicationStatus / channel
+  // search attributes (SPEC §4.6). Enriched with app-level state via query.
+  app.get('/api/applications', async (req) => {
+    const q = req.query as { status?: string; channel?: string };
+    let query = `WorkflowType = '${WORKFLOW_TYPE}'`;
+    if (q.status) query += ` AND ${SEARCH_ATTR.STATUS} = '${q.status}'`;
+    if (q.channel) query += ` AND ${SEARCH_ATTR.CHANNEL} = '${q.channel}'`;
     const client = await getClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const executions: any[] = [];
-    for await (const wf of client.workflow.list({ query: `WorkflowType = '${WORKFLOW_TYPE}'` })) {
+    for await (const wf of client.workflow.list({ query })) {
       executions.push(wf);
       if (executions.length >= 100) break;
     }

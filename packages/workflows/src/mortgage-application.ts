@@ -1,7 +1,8 @@
-import { ApplicationFailure, condition, log, proxyActivities, setHandler } from '@temporalio/workflow';
+import { ApplicationFailure, condition, log, proxyActivities, setHandler, upsertSearchAttributes } from '@temporalio/workflow';
 import {
   ApplicationStatus,
   RISK_SENSITIVE_FIELDS,
+  SEARCH_ATTR,
   statusAtOrAfter,
   type ApplicationState,
   type CreateApplicationInput,
@@ -52,6 +53,15 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
     state.timeline.push({ step, status, detail, at: new Date().toISOString() });
   };
 
+  // Advance status AND mirror it to the applicationStatus search attribute so the
+  // UI and Temporal UI can list/filter by status (SPEC §4.6).
+  const setStatus = (next: ApplicationStatus): void => {
+    state.status = next;
+    upsertSearchAttributes({ [SEARCH_ATTR.STATUS]: [next] });
+  };
+
+  upsertSearchAttributes({ [SEARCH_ATTR.CHANNEL]: [input.channel], [SEARCH_ATTR.STATUS]: [state.status] });
+
   // --- Handlers (set before any await so they are ready immediately) ---
   setHandler(getApplication, () => state);
 
@@ -101,7 +111,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   record('intake', 'COMPLETED', `intakeId=${intakeResult.intakeId}`);
 
   // --- Step 2: Income & document verification ---
-  state.status = ApplicationStatus.INCOME_VERIFICATION;
+  setStatus(ApplicationStatus.INCOME_VERIFICATION);
   record('income', 'STARTED');
   const income = await verifyIncomeAndDocuments({
     applicant: state.application.applicant,
@@ -112,7 +122,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   record('income', 'COMPLETED', `${income.docType} annual=${income.annual} verified=${income.verified}`);
 
   // --- Step 3: Cross-reference internal systems (three Lambdas in parallel) ---
-  state.status = ApplicationStatus.CROSS_REFERENCE;
+  setStatus(ApplicationStatus.CROSS_REFERENCE);
   record('cross-reference', 'STARTED', 'customer + credit + risk in parallel');
   const [customer, credit, risk] = await Promise.all([
     customerLookup({ applicant: state.application.applicant }),
@@ -129,12 +139,12 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   );
 
   // --- Step 4: Underwriting decision (from the risk model) ---
-  state.status = ApplicationStatus.DECISION;
+  setStatus(ApplicationStatus.DECISION);
   state.decision = risk.recommendedDecision;
   record('decision', 'COMPLETED', `decision=${state.decision}`);
 
   if (state.decision === 'DECLINED') {
-    state.status = ApplicationStatus.COMPLETED;
+    setStatus(ApplicationStatus.COMPLETED);
     state.outcome = 'Declined — no offer issued';
     record('outcome', 'COMPLETED', state.outcome);
     return state;
@@ -149,12 +159,12 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   });
   state.application.rate = rate.rate;
   state.application.lenderPartner = rate.lenderPartner;
-  state.status = ApplicationStatus.RATE_ASSIGNED;
+  setStatus(ApplicationStatus.RATE_ASSIGNED);
   state.lockedFields = [...RISK_SENSITIVE_FIELDS];
   record('rate', 'COMPLETED', `rate=${rate.rate}% lender=${rate.lenderPartner} (risk-sensitive fields locked)`);
 
   // --- Step 5: Syndication to lender partner, then await funding callback ---
-  state.status = ApplicationStatus.SYNDICATION;
+  setStatus(ApplicationStatus.SYNDICATION);
   record('syndication', 'STARTED', `handing off to ${rate.lenderPartner}`);
   const synd = await syndicateToLenderPartner({
     applicationId: state.id,
@@ -166,13 +176,13 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   // Durable wait — no warm compute while the lender partner reviews (SPEC §4.5).
   const gotCallback = await condition(() => callback !== undefined, '30 days');
   if (!gotCallback) {
-    state.status = ApplicationStatus.NEEDS_REVIEW;
+    setStatus(ApplicationStatus.NEEDS_REVIEW);
     state.outcome = 'Lender funding callback timed out';
     record('callback', 'FAILED', state.outcome);
     return state;
   }
 
-  state.status = ApplicationStatus.COMPLETED;
+  setStatus(ApplicationStatus.COMPLETED);
   if (callback?.approved) {
     state.outcome = `Offer issued at ${state.application.rate}% via ${state.application.lenderPartner}`;
   } else {

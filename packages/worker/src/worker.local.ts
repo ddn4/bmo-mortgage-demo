@@ -3,6 +3,7 @@ import { NativeConnection, Worker } from '@temporalio/worker';
 import * as activities from '@bmo/activities';
 import { DEFAULT_BUILD_ID, DEPLOYMENT_NAME, TASK_QUEUE } from '@bmo/shared';
 import { startControlServer } from './control-server';
+import { registerSearchAttributes } from './register-search-attributes';
 
 const BUILD_ID = process.env.BMO_BUILD_ID ?? DEFAULT_BUILD_ID;
 
@@ -29,6 +30,9 @@ const WORKFLOWS_ENTRY = path.join(
 async function run(): Promise<void> {
   const address = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
   const namespace = process.env.TEMPORAL_NAMESPACE ?? 'default';
+  // Register custom Search Attributes before polling so workflow upserts succeed.
+  await registerSearchAttributes(address, namespace);
+
   const connection = await NativeConnection.connect({ address });
   const useVersioning = process.env.WORKER_VERSIONING === 'true';
 
