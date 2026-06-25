@@ -20,7 +20,8 @@
     "ui": "npm --workspace @bmo/ui run dev",
     "dev": "npm run build && concurrently -n worker,api,ui -c blue,green,magenta \"npm:worker:local\" \"npm:api\" \"npm:ui\"",
     "smoke": "bash scripts/smoke.sh",
-    "temporal:dev": "temporal server start-dev"
+    "temporal:dev": "temporal server start-dev",
+    "temporal:dev:persist": "mkdir -p .temporal && temporal server start-dev --db-filename .temporal/dev.db"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",

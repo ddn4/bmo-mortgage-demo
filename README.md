@@ -42,6 +42,11 @@ npm run dev
 (`:8080`), and the Vite UI (`http://localhost:5173`) together. Prefer separate terminals? Run
 `npm run worker:local`, `npm run api`, and `npm run ui` individually.
 
+The default dev server is in-memory (state is lost on restart). To keep applications across
+restarts, use `npm run temporal:dev:persist`, which adds a SQLite store at `.temporal/dev.db`
+(gitignored). Note: a persisted history can surface non-determinism errors after a workflow code
+change — delete `.temporal/dev.db` to reset.
+
 Run the committed smoke test (with `npm run temporal:dev` running) to exercise the core flows
 end-to-end — happy path, field-locking, and fault-injection recovery:
 
