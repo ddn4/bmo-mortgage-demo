@@ -46,7 +46,7 @@ Browser (audience UI) ──HTTP──► demo-app API (TS/Fastify, on sa-demo E
                       (local/fallback: long-lived Worker.create())            with
                                    │  activities invoke...                     long-lived
                                    ▼
-                      BMO business Lambdas (intake, income, credit, risk, rate, syndication)
+                      BMO business Lambdas (intake, income, customer, credit, risk, rate, syndication)
 ```
 
 - **One workflow per application** (entity-workflow pattern), long-lived: created at Intake,

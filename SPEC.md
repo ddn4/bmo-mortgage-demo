@@ -30,7 +30,7 @@ Saleem). The demo must land five customer concerns and respect BMO's hard guardr
 
 | Role | What runs there | Story it serves |
 |------|-----------------|-----------------|
-| **Business Lambdas** | Stand-ins for BMO's existing isolated functions (intake, income, credit, risk, rate, syndication) — **real, independently deployed Lambdas with zero Temporal dependency** | "Orchestrate, don't replace"; observability; blast radius |
+| **Business Lambdas** | Stand-ins for BMO's existing isolated functions (intake, income, customer, credit, risk, rate, syndication — seven total; customer/credit/risk are three separate internal Lambdas run in parallel) — **real, independently deployed Lambdas with zero Temporal dependency** | "Orchestrate, don't replace"; observability; blast radius |
 | **Worker Lambda** | The Temporal worker (workflow + activity host), invoked on demand by Temporal's Worker Controller Instance | The **cost story**: durable orchestration with no warm workers 8–12 hrs/day |
 
 Showing the serverless layer live to BMO is **confirmed** — it's the headline of the cloud demo. We
@@ -270,7 +270,7 @@ This local→cloud flow is exactly what was requested and is how the reference r
   **RoleARN** + **ExternalID**.
 - **Worker Deployment Version:** create in Temporal UI/CLI with the worker ARN, RoleARN, ExternalID;
   `name` + `buildId` must match worker code; set current.
-- **Business Lambdas:** deploy the six mock functions (SAM/CloudFormation).
+- **Business Lambdas:** deploy the seven mock functions (SAM/CloudFormation).
 - **Demo-app (UI+API):** containerize → ECR → `sa-demo` EKS via k8s manifests + Traefik IngressRoute
   → public URL at `*.tmprl-demo.cloud`. Temporal creds via k8s Secret.
 - **Co-location:** keep the namespace and both Lambda roles in the same region so WCI→Lambda
@@ -288,7 +288,7 @@ bmo-mortgage-demo/
 │   ├── workflows/      # mortgageApplicationWorkflow (+ bundle build)
 │   ├── activities/     # step activities + invoker abstraction (real Lambda | mock)
 │   ├── worker/         # entrypoints: worker.lambda.ts (serverless) | worker.local.ts (long-lived)
-│   ├── lambdas/        # six mock BMO business Lambdas
+│   ├── lambdas/        # seven mock BMO business Lambdas (incl. customer lookup)
 │   ├── api/            # Fastify: Temporal client, metrics, control endpoints
 │   └── ui/             # Vite + React + TS dashboard
 ├── infra/              # SAM/CloudFormation (Lambdas, IAM) + k8s manifests + IngressRoute
