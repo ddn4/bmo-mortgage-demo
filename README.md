@@ -30,19 +30,23 @@ Prereqs: Node 20+, the `temporal` CLI. No serverless/AWS access needed locally.
 
 ```bash
 npm install
-npm run build                 # tsc -b across all packages
 
 # terminal 1 — local Temporal cluster + UI at http://localhost:8233
 npm run temporal:dev
 
-# terminal 2 — long-lived worker (runs the Lambda handler code in-process)
-npm run worker:local
+# terminal 2 — build, then run worker + API + UI together
+npm run dev
+```
 
-# terminal 3 — API (Temporal client) at :8080
-npm run api
+`npm run dev` builds the packages and starts the worker (`:8088` control plane), the API
+(`:8080`), and the Vite UI (`http://localhost:5173`) together. Prefer separate terminals? Run
+`npm run worker:local`, `npm run api`, and `npm run ui` individually.
 
-# terminal 4 — UI (Vite dev server) at http://localhost:5173, proxies /api → :8080
-npm run ui
+Run the committed smoke test (with `npm run temporal:dev` running) to exercise the core flows
+end-to-end — happy path, field-locking, and fault-injection recovery:
+
+```bash
+npm run smoke
 ```
 
 Open **http://localhost:5173** and drive the demo from the UI: create an application, watch the

@@ -18,10 +18,13 @@
     "happy-path": "node packages/client/dist/cli.js happy-path",
     "api": "node packages/api/dist/server.js",
     "ui": "npm --workspace @bmo/ui run dev",
+    "dev": "npm run build && concurrently -n worker,api,ui -c blue,green,magenta \"npm:worker:local\" \"npm:api\" \"npm:ui\"",
+    "smoke": "bash scripts/smoke.sh",
     "temporal:dev": "temporal server start-dev"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",
+    "concurrently": "^9.1.0",
     "typescript": "~5.4.5"
   }
 }
