@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output / bundles
+dist/
+build/
+out/
+*.tsbuildinfo
+# Pre-bundled workflow code (bundleWorkflowCode output)
+**/workflow-bundle.js
+.aws-sam/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+aws-credentials.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Temporal local dev
+.temporal/
