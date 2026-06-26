@@ -11,15 +11,15 @@ export function hashString(s: string): number {
 
 /**
  * Simulate business work so the pipeline is observable step-by-step. Each handler
- * sleeps a random interval (default 1–3s) and logs a line that shows up in the
- * worker output locally and in the function's CloudWatch logs in the cloud — which
- * also makes the "before: siloed per-Lambda logs" view tangible. Tune the pace
- * with BMO_STEP_MIN_MS / BMO_STEP_MAX_MS (e.g. set both to 0 for fast runs/tests).
+ * sleeps a random interval (default ~0.7–2.1s) and logs a line that shows up in
+ * the worker output locally and in the function's CloudWatch logs in the cloud —
+ * which also makes the "before: siloed per-Lambda logs" view tangible. Tune the
+ * pace with BMO_STEP_MIN_MS / BMO_STEP_MAX_MS (e.g. set both to 0 for fast runs).
  * Safe here — handlers are not workflow code.
  */
 export async function simulateWork(fnName: string): Promise<void> {
-  const min = Number(process.env.BMO_STEP_MIN_MS ?? '1000');
-  const max = Number(process.env.BMO_STEP_MAX_MS ?? '3000');
+  const min = Number(process.env.BMO_STEP_MIN_MS ?? '700');
+  const max = Number(process.env.BMO_STEP_MAX_MS ?? '2100');
   const span = Math.max(0, max - min);
   const ms = min + Math.floor(Math.random() * (span + 1));
   console.log(`[${fnName}] simulating work for ${(ms / 1000).toFixed(1)}s`);

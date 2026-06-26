@@ -53,6 +53,11 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
     state.timeline.push({ step, status, detail, at: new Date().toISOString() });
   };
 
+  // Elapsed across an activity, in deterministic workflow time — surfaces the
+  // per-Lambda "simulating work for N.Ns" line in the timeline / siloed-logs view
+  // (the handler's own console.log only reaches worker stdout / CloudWatch).
+  const workedFor = (since: number): string => `simulating work for ${((Date.now() - since) / 1000).toFixed(1)}s`;
+
   // Advance status AND mirror it to the applicationStatus search attribute so the
   // UI and Temporal UI can list/filter by status (SPEC §4.6).
   const setStatus = (next: ApplicationStatus): void => {
@@ -103,27 +108,30 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
 
   // --- Step 1: Intake ---
   record('intake', 'STARTED');
+  const tIntake = Date.now();
   const intakeResult = await intake({
     applicant: state.application.applicant,
     contact: state.application.contact,
     channel: state.channel,
   });
-  record('intake', 'COMPLETED', `intakeId=${intakeResult.intakeId}`);
+  record('intake', 'COMPLETED', `${workedFor(tIntake)} · intakeId=${intakeResult.intakeId}`);
 
   // --- Step 2: Income & document verification ---
   setStatus(ApplicationStatus.INCOME_VERIFICATION);
   record('income', 'STARTED');
+  const tIncome = Date.now();
   const income = await verifyIncomeAndDocuments({
     applicant: state.application.applicant,
     docType: input.incomeDocType ?? 'T4',
   });
   state.application.income = { annual: income.annual, docType: income.docType, verified: income.verified };
   state.application.documents = income.documents;
-  record('income', 'COMPLETED', `${income.docType} annual=${income.annual} verified=${income.verified}`);
+  record('income', 'COMPLETED', `${workedFor(tIncome)} · ${income.docType} annual=${income.annual} verified=${income.verified}`);
 
   // --- Step 3: Cross-reference internal systems (three Lambdas in parallel) ---
   setStatus(ApplicationStatus.CROSS_REFERENCE);
   record('cross-reference', 'STARTED', 'customer + credit + risk in parallel');
+  const tXref = Date.now();
   const [customer, credit, risk] = await Promise.all([
     customerLookup({ applicant: state.application.applicant }),
     creditScore({ applicant: state.application.applicant }),
@@ -135,7 +143,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   record(
     'cross-reference',
     'COMPLETED',
-    `customer=${customer.customerRef} score=${credit.score} risk=${risk.riskTier}`,
+    `${workedFor(tXref)} (parallel) · customer=${customer.customerRef} score=${credit.score} risk=${risk.riskTier}`,
   );
 
   // --- Step 4: Underwriting decision (from the risk model) ---
@@ -152,6 +160,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
 
   // --- Step 4b: Rate assignment (locks risk-sensitive fields) ---
   record('rate', 'STARTED');
+  const tRate = Date.now();
   const rate = await assignRate({
     creditScore: credit.score,
     riskTier: risk.riskTier,
@@ -161,17 +170,18 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   state.application.lenderPartner = rate.lenderPartner;
   setStatus(ApplicationStatus.RATE_ASSIGNED);
   state.lockedFields = [...RISK_SENSITIVE_FIELDS];
-  record('rate', 'COMPLETED', `rate=${rate.rate}% lender=${rate.lenderPartner} (risk-sensitive fields locked)`);
+  record('rate', 'COMPLETED', `${workedFor(tRate)} · rate=${rate.rate}% lender=${rate.lenderPartner} (risk-sensitive fields locked)`);
 
   // --- Step 5: Syndication to lender partner, then await funding callback ---
   setStatus(ApplicationStatus.SYNDICATION);
   record('syndication', 'STARTED', `handing off to ${rate.lenderPartner}`);
+  const tSynd = Date.now();
   const synd = await syndicateToLenderPartner({
     applicationId: state.id,
     lenderPartner: rate.lenderPartner,
     summary: `${state.application.applicant} / ${state.decision} / ${rate.rate}%`,
   });
-  record('syndication', 'COMPLETED', `syndicationRef=${synd.syndicationRef}; awaiting lender funding callback`);
+  record('syndication', 'COMPLETED', `${workedFor(tSynd)} · syndicationRef=${synd.syndicationRef}; awaiting lender funding callback`);
 
   // Durable wait — no warm compute while the lender partner reviews (SPEC §4.5).
   const gotCallback = await condition(() => callback !== undefined, '30 days');
