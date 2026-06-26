@@ -157,6 +157,46 @@ async function main(): Promise<void> {
     return { path: 'packages/workflows/src/mortgage-application.ts', code };
   });
 
+  // Fleet metrics via server-side count() — accurate at any scale (the list is
+  // capped at 100, so panel counts must NOT be derived from it).
+  app.get('/api/metrics', async () => {
+    const client = await getClient();
+    const base = `WorkflowType = '${WORKFLOW_TYPE}'`;
+    const [running, completed] = await Promise.all([
+      client.workflow.count(`${base} AND ExecutionStatus = 'Running'`),
+      client.workflow.count(`${base} AND ExecutionStatus = 'Completed'`),
+    ]);
+    return { inFlight: running.count, completed: completed.count };
+  });
+
+  // Bulk lender callback: drain every application parked at syndication so a
+  // burst can flow to completion (the per-app callback is in the detail pane).
+  app.post('/api/callback-all', async () => {
+    const client = await getClient();
+    const ids: string[] = [];
+    for await (const wf of client.workflow.list({
+      query: `WorkflowType = '${WORKFLOW_TYPE}' AND ${SEARCH_ATTR.STATUS} = 'SYNDICATION'`,
+    })) {
+      ids.push(wf.workflowId);
+      if (ids.length >= 1000) break;
+    }
+    let sent = 0;
+    const BATCH = 25;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      await Promise.all(
+        ids.slice(i, i + BATCH).map(async (workflowId) => {
+          try {
+            await client.workflow.getHandle(workflowId).signal(lenderCallback, { approved: true, reference: 'FUND-bulk' });
+            sent += 1;
+          } catch {
+            /* skip individual failures */
+          }
+        }),
+      );
+    }
+    return { sent };
+  });
+
   // List applications, optionally filtered by the applicationStatus / channel
   // search attributes (SPEC §4.6). Enriched with app-level state via query.
   app.get('/api/applications', async (req) => {

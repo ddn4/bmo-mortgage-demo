@@ -11,12 +11,14 @@ export function App() {
   const [faultOn, setFaultOn] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [source, setSource] = useState('');
+  const [metrics, setMetrics] = useState({ inFlight: 0, completed: 0 });
 
   const refreshList = useCallback(async () => {
     try {
       setItems(await api.list(statusFilter));
       setTriage(await api.triage());
       setFaultOn((await api.getFault()).syndicationFault);
+      setMetrics(await api.metrics());
     } catch {
       /* API not up yet — keep polling */
     }
@@ -24,6 +26,11 @@ export function App() {
 
   const burst = useCallback(async (n: number) => {
     await api.burst(n);
+    await refreshList();
+  }, [refreshList]);
+
+  const callbackAll = useCallback(async () => {
+    await api.callbackAll();
     await refreshList();
   }, [refreshList]);
 
@@ -86,7 +93,7 @@ export function App() {
               refreshList();
             }}
           />
-          <OperationsPanel items={items} onBurst={burst} />
+          <OperationsPanel metrics={metrics} needsReview={triage.length} onBurst={burst} onCallbackAll={callbackAll} />
           <AppList
             items={items}
             selectedId={selectedId}

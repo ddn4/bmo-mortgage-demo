@@ -101,8 +101,10 @@ facts, before/after timeline, edit, lender callback) and the collapsible *Workfl
 
 ### 9 · Burst + cost *(~1:30)*
 - **Do:** In *Operations & cost*, set burst to ~30 and **Start N applications**. Watch **In-flight**
-  climb and drain (the local worker is concurrency-capped to *simulate* one Lambda). Open the **cost**
-  panel.
+  climb (the local worker is concurrency-capped to *simulate* one Lambda). They park at syndication
+  awaiting the lender callback — click **Complete all at syndication** to drain the fleet and watch
+  **Completed** climb. Open the **cost** panel. *(Counts are exact server-side `count()`s, not the
+  capped list.)*
 - **Say:** "The serverless worker **scales from zero**, absorbs the burst, returns to zero — **no warm
   Lambdas 8–12 hours a day, no cold-start tax**. Here's the bill difference." *(Local note: this shows
   the queue absorbing load and the cost model; true scale-to-zero is the live cloud demo — M5.)*

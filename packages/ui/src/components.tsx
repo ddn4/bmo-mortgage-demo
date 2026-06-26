@@ -387,8 +387,6 @@ export function TriagePanel({
 
 // ---------------------------------------------------------------------------
 
-const TERMINAL = new Set(['COMPLETED']);
-
 /** Illustrative cost model: always-warm worker fleet vs. serverless scale-to-zero. */
 function CostModel() {
   // Assumptions (stated, editable in code): an orchestration worker fleet that
@@ -427,19 +425,30 @@ function CostModel() {
   );
 }
 
-export function OperationsPanel({ items, onBurst }: { items: AppListItem[]; onBurst: (n: number) => void }) {
+export function OperationsPanel({
+  metrics,
+  needsReview,
+  onBurst,
+  onCallbackAll,
+}: {
+  // Counts come from the server-side count() API so they're accurate beyond the
+  // 100-item list cap. needsReview is the Triage set — apps awaiting manual
+  // intervention (a retrying/stuck activity), not the rare NEEDS_REVIEW status.
+  metrics: { inFlight: number; completed: number };
+  needsReview: number;
+  onBurst: (n: number) => void;
+  onCallbackAll: () => Promise<void> | void;
+}) {
   const [n, setN] = useState(30);
   const [bursting, setBursting] = useState(false);
-  const inFlight = items.filter((i) => i.status && !TERMINAL.has(i.status)).length;
-  const completed = items.filter((i) => i.status === 'COMPLETED').length;
-  const review = items.filter((i) => i.status === 'NEEDS_REVIEW').length;
+  const [draining, setDraining] = useState(false);
 
-  const burst = async () => {
-    setBursting(true);
+  const run = async (fn: () => Promise<void> | void, setBusy: (b: boolean) => void) => {
+    setBusy(true);
     try {
-      await Promise.resolve(onBurst(n));
+      await Promise.resolve(fn());
     } finally {
-      setBursting(false);
+      setBusy(false);
     }
   };
 
@@ -447,14 +456,19 @@ export function OperationsPanel({ items, onBurst }: { items: AppListItem[]; onBu
     <div className="card">
       <h2>Operations &amp; cost</h2>
       <div className="readouts">
-        <div><b>In-flight</b><span>{inFlight}</span></div>
-        <div><b>Completed</b><span>{completed}</span></div>
-        <div><b>Needs review</b><span className={review ? 'warn-num' : ''}>{review}</span></div>
+        <div><b>In-flight</b><span>{metrics.inFlight}</span></div>
+        <div><b>Completed</b><span>{metrics.completed}</span></div>
+        <div><b>Needs review</b><span className={needsReview ? 'warn-num' : ''}>{needsReview}</span></div>
       </div>
       <div className="row burst-row">
         <span className="mono muted">burst</span>
         <input type="number" min={1} max={200} value={n} onChange={(e) => setN(Number(e.target.value))} />
-        <button disabled={bursting} onClick={burst}>Start {n} applications</button>
+        <button disabled={bursting} onClick={() => run(() => onBurst(n), setBursting)}>Start {n} applications</button>
+      </div>
+      <div className="row">
+        <button className="secondary" disabled={draining} onClick={() => run(onCallbackAll, setDraining)} title="Send the lender funding callback to every application parked at syndication">
+          {draining ? 'Sending…' : 'Complete all at syndication'}
+        </button>
       </div>
       <CostModel />
     </div>

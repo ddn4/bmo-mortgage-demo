@@ -27,5 +27,7 @@ export const api = {
   getFault: (): Promise<{ syndicationFault: boolean }> => fetch('/api/fault').then((r) => r.json()),
   setFault: (on: boolean) => post<{ syndicationFault: boolean }>('/api/fault', { on }),
   burst: (count: number) => post<{ started: number }>('/api/burst', { count }),
+  callbackAll: () => post<{ sent: number }>('/api/callback-all', {}),
+  metrics: (): Promise<{ inFlight: number; completed: number }> => fetch('/api/metrics').then((r) => r.json()),
   source: (): Promise<{ path: string; code: string }> => fetch('/api/source').then((r) => r.json()),
 };
