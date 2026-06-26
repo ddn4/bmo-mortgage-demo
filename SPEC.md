@@ -393,6 +393,17 @@ Talk-track or stretch beats, kept out of the core build per Rick's "~5 steps / o
 - **No-Redis / durable state** talk track — process state lives in the workflow; no bolt-on
   cache / SQL store for orchestration state.
 - **Bilingual FR/EN + accessibility** nod in the UI — cosmetic, matches their real app.
+- **Observable heartbeats on syndication** *(optional; wiring already present)* — the heartbeat
+  machinery is in place but vestigial because the mock syndication activity is sub-2s, and heartbeats
+  are (by design) **not written to Event History** — they're only visible in the Temporal UI's
+  *Pending Activities* panel while in-flight, and their details persist only on failure/retry. To make
+  it a live beat: (1) make `syndicationHandler` (`packages/lambdas/src/syndication.ts`) genuinely
+  long-running — loop a chunked "lender handoff" over several seconds, configurable via env; (2) in
+  `syndicateToLenderPartner` (`packages/activities/src/activities.ts`) `heartbeat(progress)` inside the
+  loop (e.g., `{ pct, stage }`) and resume from `activityInfo().heartbeatDetails` on retry to show
+  checkpoint-resume after a worker kill; (3) optionally surface the progress in the app timeline/UI.
+  `heartbeatTimeout` is already `30s` (the max gap, not a cadence). Watch it live in *Pending
+  Activities*; pairs well with the fault-injection beat (kill the worker mid-handoff, watch it resume).
 
 ## 15. Out of scope (for this demo)
 
