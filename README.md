@@ -54,6 +54,8 @@ end-to-end — happy path, field-locking, and fault-injection recovery:
 npm run smoke
 ```
 
+Presenting it? **[DEMO.md](DEMO.md)** is the click-by-click script (pre-flight, beats, talk track).
+
 Open **http://localhost:5173** and drive the demo from the UI: create an application, watch the
 one-trace timeline, flip the before/after toggle, try editing `rate` after rate assignment (rejected),
 push from the partner channel, send the lender callback at syndication, **burst N applications** for the

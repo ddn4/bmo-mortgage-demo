@@ -338,6 +338,9 @@ Target a rough first pass after the holiday period (per the outline); finalize t
 
 ## 12. Demo run-of-show (beat sequence + talk track)
 
+> The concrete, click-by-click presenter script (grounded in the built UI, with pre-flight setup and
+> recovery notes) is in [`DEMO.md`](DEMO.md). The table below is the high-level beat sequence.
+
 A tight ~10–12 minute live flow; presenter drives from the UI, Hussain narrates the business.
 
 | # | Beat | Presenter does | Talk track / value |
