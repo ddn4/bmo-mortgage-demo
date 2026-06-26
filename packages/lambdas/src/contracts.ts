@@ -34,6 +34,7 @@ export interface CustomerRequest {
 export interface CustomerResponse {
   customerRef: string;
   bookOfRecord: 'FOUND' | 'NEW';
+  workMs: number;
 }
 
 export interface CreditRequest {
@@ -41,6 +42,7 @@ export interface CreditRequest {
 }
 export interface CreditResponse {
   score: number;
+  workMs: number;
 }
 
 export interface RiskRequest {
@@ -49,6 +51,7 @@ export interface RiskRequest {
 export interface RiskResponse {
   riskTier: RiskTier;
   recommendedDecision: Decision;
+  workMs: number;
 }
 
 export interface RateRequest {

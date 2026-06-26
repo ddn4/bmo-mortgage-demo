@@ -12,7 +12,7 @@ import { hashString, maybeTransientFailure, simulateWork } from './util';
  * outcome for a predictable live demo.
  */
 export async function riskHandler(req: RiskRequest): Promise<RiskResponse> {
-  await simulateWork('bmo-risk-fn');
+  const workMs = await simulateWork('bmo-risk-fn');
   maybeTransientFailure('bmo-risk-fn');
 
   const forced = process.env.BMO_FORCE_DECISION as Decision | undefined;
@@ -22,11 +22,11 @@ export async function riskHandler(req: RiskRequest): Promise<RiskResponse> {
       CONDITIONAL: 'MEDIUM',
       DECLINED: 'HIGH',
     };
-    return { riskTier: tierFor[forced], recommendedDecision: forced };
+    return { riskTier: tierFor[forced], recommendedDecision: forced, workMs };
   }
 
   const h = hashString(`risk:${req.applicant}`) % 100;
-  if (h < 60) return { riskTier: 'LOW', recommendedDecision: 'APPROVED' };
-  if (h < 90) return { riskTier: 'MEDIUM', recommendedDecision: 'CONDITIONAL' };
-  return { riskTier: 'HIGH', recommendedDecision: 'DECLINED' };
+  if (h < 60) return { riskTier: 'LOW', recommendedDecision: 'APPROVED', workMs };
+  if (h < 90) return { riskTier: 'MEDIUM', recommendedDecision: 'CONDITIONAL', workMs };
+  return { riskTier: 'HIGH', recommendedDecision: 'DECLINED', workMs };
 }

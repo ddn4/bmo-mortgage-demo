@@ -56,7 +56,8 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   // Elapsed across an activity, in deterministic workflow time — surfaces the
   // per-Lambda "simulating work for N.Ns" line in the timeline / siloed-logs view
   // (the handler's own console.log only reaches worker stdout / CloudWatch).
-  const workedFor = (since: number): string => `simulating work for ${((Date.now() - since) / 1000).toFixed(1)}s`;
+  const fmtWork = (ms: number): string => `simulating work for ${(ms / 1000).toFixed(1)}s`;
+  const workedFor = (since: number): string => fmtWork(Date.now() - since);
 
   // Advance status AND mirror it to the applicationStatus search attribute so the
   // UI and Temporal UI can list/filter by status (SPEC §4.6).
@@ -130,8 +131,11 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
 
   // --- Step 3: Cross-reference internal systems (three Lambdas in parallel) ---
   setStatus(ApplicationStatus.CROSS_REFERENCE);
-  record('cross-reference', 'STARTED', 'customer + credit + risk in parallel');
-  const tXref = Date.now();
+  // Three isolated internal Lambdas, fanned out together. Each records its own
+  // step so the per-Lambda lines (and real durations) show as distinct silos.
+  record('customer', 'STARTED', 'parallel cross-reference');
+  record('credit', 'STARTED', 'parallel cross-reference');
+  record('risk', 'STARTED', 'parallel cross-reference');
   const [customer, credit, risk] = await Promise.all([
     customerLookup({ applicant: state.application.applicant }),
     creditScore({ applicant: state.application.applicant }),
@@ -140,11 +144,9 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   state.application.customerRef = customer.customerRef;
   state.application.creditScore = credit.score;
   state.application.riskTier = risk.riskTier;
-  record(
-    'cross-reference',
-    'COMPLETED',
-    `${workedFor(tXref)} (parallel) · customer=${customer.customerRef} score=${credit.score} risk=${risk.riskTier}`,
-  );
+  record('customer', 'COMPLETED', `${fmtWork(customer.workMs)} · customerRef=${customer.customerRef} (${customer.bookOfRecord})`);
+  record('credit', 'COMPLETED', `${fmtWork(credit.workMs)} · score=${credit.score}`);
+  record('risk', 'COMPLETED', `${fmtWork(risk.workMs)} · riskTier=${risk.riskTier}`);
 
   // --- Step 4: Underwriting decision (from the risk model) ---
   setStatus(ApplicationStatus.DECISION);
