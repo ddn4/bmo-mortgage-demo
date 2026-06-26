@@ -22,7 +22,7 @@ expands SPEC §8.
 ## Prerequisites (you arrange)
 
 - **AWS** SA acct **429214323166**, write creds (`access account --aws-account-id 429214323166 --write`). Tools: AWS CLI, **SAM CLI**, Docker, kubectl, `tcld`.
-- **Temporal Cloud**: an **AWS-hosted namespace in us-east-1**, an **API key**, and **Serverless Workers (pre-release) enabled** (request via the account team — the long-lead item). From onboarding you also get the **AWS principal ARN** Temporal uses to assume the invoke role.
+- **Temporal Cloud**: an **AWS-hosted namespace in us-east-2**, an **API key**, and **Serverless Workers (pre-release) enabled** (request via the account team — the long-lead item; confirm us-east-2 support). From onboarding you also get the **AWS principal ARN** Temporal uses to assume the invoke role.
 - **`sa-demo` EKS** kubeconfig (us-west-1) + the `*.tmprl-demo.cloud` ingress.
 
 ## Order of operations
@@ -36,7 +36,7 @@ expands SPEC §8.
 ## ⚠ Needs live validation (can't be verified without the cloud + Linux build)
 
 - **Worker native binary.** `@temporalio/worker` includes a native `core-bridge` (`.node`). The worker artifact must ship the **Linux** build — use `sam build --use-container`, a CI Linux build, or a Lambda layer. `build-worker-lambda.mjs` keeps `@temporalio/*` external and assembles the JS; the native deps are supplied at package time.
-- **Serverless Workers is pre-release.** Confirm it's enabled in **us-east-1**, and verify the exact `temporal.toml` keys and the Worker-Deployment-Version → Lambda-ARN/role mapping subcommands against the current docs:
+- **Serverless Workers is pre-release.** Confirm it's enabled in **us-east-2**, and verify the exact `temporal.toml` keys and the Worker-Deployment-Version → Lambda-ARN/role mapping subcommands against the current docs:
   https://docs.temporal.io/develop/typescript/workers/serverless-workers/aws-lambda
 - **Versioned ARN.** The template uses `AutoPublishAlias: live` (a qualified, non-`$LATEST` ARN). If Temporal requires a numbered version, read it from the published version and map that instead.
 

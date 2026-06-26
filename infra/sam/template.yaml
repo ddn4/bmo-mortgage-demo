@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   BMO mortgage demo — the seven Temporal-free business Lambdas, the serverless
   Temporal worker Lambda, and the IAM role Temporal assumes to invoke the worker.
-  Deploy to us-east-1 (co-located with the Temporal Cloud namespace, SPEC §8).
+  Deploy to us-east-2 (co-located with the Temporal Cloud namespace, SPEC §8).
 
 Parameters:
   FunctionPrefix:

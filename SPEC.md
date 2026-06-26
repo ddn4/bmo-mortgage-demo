@@ -258,15 +258,15 @@ This local→cloud flow is exactly what was requested and is how the reference r
 
 - **AWS account:** SA account **429214323166**. CLI creds via the JIT tool:
   `access account --aws-account-id 429214323166 --write`.
-- **Regions (resolved):** us-west is *not* required. Co-locate the **Temporal Cloud namespace +
-  business Lambdas + worker Lambda** in **`us-east-1`** (Northern Virginia) — matches the shared
-  reference repo (`temporal-serverless-no-roads`), is the eastern US region closest to BMO, and is
-  typically first in line for pre-release features. **Confirm pre-release Serverless Workers is
-  enabled in `us-east-1`** with the account team. The **UI stays on `sa-demo` EKS (`us-west-1`)**
-  for the easy public `*.tmprl-demo.cloud` URL; cross-region UI→Temporal Cloud is just gRPC over the
-  internet and adds no per-application latency. Workers need not share the namespace's region —
-  co-location is a latency optimization, not a requirement.
-- **Temporal Cloud:** an **AWS-hosted namespace** in `us-east-1` (provider must match the Lambda
+- **Regions (resolved):** Co-locate the **Temporal Cloud namespace + business Lambdas + worker
+  Lambda** in **`us-east-2`** (Ohio) — the region our AWS account access is scoped to. (Originally
+  scoped to us-east-1 to match the reference repo; changed to us-east-2 per available access.)
+  **Confirm Temporal Cloud + pre-release Serverless Workers support `us-east-2`** with the account
+  team. The **UI stays on `sa-demo` EKS (`us-west-1`)** for the easy public `*.tmprl-demo.cloud` URL;
+  cross-region UI→Temporal Cloud is just gRPC over the internet and adds no per-application latency.
+  Workers need not share the namespace's region — co-location is a latency optimization, not a
+  requirement.
+- **Temporal Cloud:** an **AWS-hosted namespace** in `us-east-2` (provider must match the Lambda
   compute provider) with **Serverless Workers enabled** — pre-release, request via account team /
   support ticket. API key → AWS Secrets Manager.
 - **Worker Lambda:** deploy TS worker (pre-bundled workflows); publish a **versioned ARN**
@@ -322,15 +322,15 @@ Target a rough first pass after the holiday period (per the outline); finalize t
 
 1. **RESOLVED — Serverless live demo confirmed.** The pre-release feature can be shown to BMO live;
    it's the headline of the cloud demo. We still keep the long-lived worker as the local-dev runtime
-   and a live-demo safety net (§6). Remaining sub-check: confirm it's enabled in `us-east-1` (#4).
+   and a live-demo safety net (§6). Remaining sub-check: confirm it's enabled in `us-east-2` (#4).
 2. **UI framework.** Vite+React+TS (recommended — polish, matches their team) vs. a single embedded
    HTML page like the reference repo (faster, less polish). *Recommendation: Vite+React+TS.*
 3. **RESOLVED — Real business Lambdas.** Build real, independently deployed, Temporal-free Lambdas
    that stand in for BMO's existing functions (we don't have theirs). Activities are thin invokers;
    the same handler code runs in-process / SAM Local for local dev. See §4.3.
-4. **RESOLVED — Region.** `us-east-1` for the namespace + Lambdas (matches the shared reference
-   repo); UI on `us-west-1` EKS. Remaining check: confirm pre-release Serverless Workers is enabled
-   in `us-east-1`. See §8.
+4. **RESOLVED — Region.** `us-east-2` (Ohio) for the namespace + Lambdas (the region our AWS access
+   is scoped to); UI on `us-west-1` EKS. Remaining check: confirm Temporal Cloud + pre-release
+   Serverless Workers support `us-east-2`. See §8.
 5. **Branding assets** — BMO/Capco/Temporal logos, color palette, any compliance/confidentiality
    marking for a customer-facing screen. *Recommendation: tasteful co-brand; confirm with Hussain.*
 6. **Reset/replay depth** — is `temporal workflow reset` worth showing, or keep recovery to

@@ -28,7 +28,7 @@ function cloudInvoker(): Invoker {
   // Lazy-require the AWS SDK so local dev never loads it.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-  const client = new LambdaClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+  const client = new LambdaClient({ region: process.env.AWS_REGION ?? 'us-east-2' });
   const prefix = process.env.BMO_FN_PREFIX ?? '';
   cloud = {
     async invoke<TReq, TRes>(fn: LambdaName, payload: TReq): Promise<TRes> {

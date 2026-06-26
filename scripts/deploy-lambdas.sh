@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Deploy the business Lambdas + serverless worker Lambda + Temporal invoke role.
-# Requires AWS creds (SA acct 429214323166) and SAM CLI. Region: us-east-1.
+# Requires AWS creds (SA acct 429214323166) and SAM CLI. Region: us-east-2.
 #
 # NOTE: the worker artifact needs the @temporalio/* native core-bridge built for
 # LINUX — `sam build --use-container` builds it in a Lambda-like container. The
@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-: "${AWS_REGION:=us-east-1}"
+: "${AWS_REGION:=us-east-2}"
 : "${FUNCTION_PREFIX:=bmo}"
 : "${BUILD_ID:=v1}"
 : "${TEMPORAL_PRINCIPAL_ARN:?set TEMPORAL_PRINCIPAL_ARN (from Temporal serverless-workers onboarding)}"

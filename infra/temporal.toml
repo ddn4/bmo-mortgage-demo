@@ -8,9 +8,9 @@
 # https://docs.temporal.io/develop/typescript/workers/serverless-workers/aws-lambda
 
 [profile.default]
-# AWS-hosted Temporal Cloud namespace, us-east-2 (SPEC §8).
-address = "<namespace-id>.<account-id>.tmprl.cloud:7233"
-namespace = "<namespace-id>.<account-id>"
+# AWS-hosted Temporal Cloud namespace, us-east-1 (SPEC §8).
+address = "ddn4-serverless-mortgage.sdvdw.tmprl.cloud:7233"
+namespace = "ddn4-serverless-mortgage.sdvdw"
 # API-key auth (the demo's chosen method); store the secret out-of-band.
 api_key = "${TEMPORAL_API_KEY}"
 
