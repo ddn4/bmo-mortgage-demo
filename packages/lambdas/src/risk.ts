@@ -1,6 +1,6 @@
 import type { Decision, RiskTier } from '@bmo/shared';
 import type { RiskRequest, RiskResponse } from './contracts';
-import { hashString, maybeTransientFailure, simulateLatency } from './util';
+import { hashString, maybeTransientFailure, simulateWork } from './util';
 
 /**
  * bmo-risk-fn — risk model (one of three parallel internal Lambdas). Returns the
@@ -12,7 +12,7 @@ import { hashString, maybeTransientFailure, simulateLatency } from './util';
  * outcome for a predictable live demo.
  */
 export async function riskHandler(req: RiskRequest): Promise<RiskResponse> {
-  await simulateLatency(70, 220);
+  await simulateWork('bmo-risk-fn');
   maybeTransientFailure('bmo-risk-fn');
 
   const forced = process.env.BMO_FORCE_DECISION as Decision | undefined;

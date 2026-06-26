@@ -1,7 +1,7 @@
 import { BusinessError } from '@bmo/shared';
 import type { SyndicationRequest, SyndicationResponse } from './contracts';
 import { syndicationFaultEnabled } from './control';
-import { hashString, maybeTransientFailure, simulateLatency } from './util';
+import { hashString, maybeTransientFailure, simulateWork } from './util';
 
 /**
  * bmo-syndication-fn — hands off to a Canadian lender partner. Long-running
@@ -13,7 +13,7 @@ import { hashString, maybeTransientFailure, simulateLatency } from './util';
  * resumes cleanly once the operator clears the fault (SPEC §4.4).
  */
 export async function syndicationHandler(req: SyndicationRequest): Promise<SyndicationResponse> {
-  await simulateLatency(800, 1800);
+  await simulateWork('bmo-syndication-fn');
   if (syndicationFaultEnabled()) {
     throw new BusinessError(
       'SchemaMismatch',

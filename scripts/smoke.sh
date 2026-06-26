@@ -25,7 +25,8 @@ npm run build >/dev/null 2>&1 || { echo "FAIL: build"; exit 1; }
 temporal workflow terminate --query 'ExecutionStatus="Running"' --reason "smoke reset" --yes >/dev/null 2>&1 || true
 
 echo "› starting worker + API…"
-BMO_FORCE_DECISION=APPROVED node packages/worker/dist/worker.local.js >"$TMP/worker.log" 2>&1 &
+# Pin step delays to 0 so the automated test isn't slowed by the demo pacing.
+BMO_FORCE_DECISION=APPROVED BMO_STEP_MIN_MS=0 BMO_STEP_MAX_MS=0 node packages/worker/dist/worker.local.js >"$TMP/worker.log" 2>&1 &
 WPID=$!
 node packages/api/dist/server.js >"$TMP/api.log" 2>&1 &
 APID=$!

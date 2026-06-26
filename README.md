@@ -82,6 +82,7 @@ node packages/client/dist/cli.js partner-push --name "Partner Lead"
 | `CONTROL_PORT` | Worker control-plane port for the fault toggle (default 8088). |
 | `WORKER_CONTROL_URL` | Where the API reaches the worker control plane (default `http://localhost:8088`). |
 | `BMO_TRANSIENT_FAILURE_RATE` | `0..1` — inject random transient downstream failures so Temporal's retries are visible. |
+| `BMO_STEP_MIN_MS` / `BMO_STEP_MAX_MS` | Per-step simulated work range (default `1000`/`3000` = 1–3s, so transitions are observable). Each handler logs `"[fn] simulating work for N.Ns"`. Set both to `0` for fast runs. |
 | `WORKER_VERSIONING` | `true` to enable Worker Versioning (PINNED). Requires a current Worker Deployment Version. |
 | `MAX_CONCURRENT_ACTIVITIES` | Caps activity concurrency to *simulate* a single Lambda (default 5). |
 | `INVOKER_MODE` | `local` (default, in-process handlers) \| `cloud` (real Lambda invoke — M5). |

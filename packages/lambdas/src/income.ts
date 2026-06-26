@@ -1,5 +1,5 @@
 import type { IncomeRequest, IncomeResponse } from './contracts';
-import { hashString, maybeTransientFailure, simulateLatency } from './util';
+import { hashString, maybeTransientFailure, simulateWork } from './util';
 
 /**
  * bmo-income-verification-fn — verifies a pay stub. Handles both a traditional
@@ -7,7 +7,7 @@ import { hashString, maybeTransientFailure, simulateLatency } from './util';
  * income, SPEC §3 step 2).
  */
 export async function incomeHandler(req: IncomeRequest): Promise<IncomeResponse> {
-  await simulateLatency(80, 200);
+  await simulateWork('bmo-income-verification-fn');
   maybeTransientFailure('bmo-income-verification-fn');
   const base = 45_000 + (hashString(req.applicant) % 90_000);
   const annual = req.docType === 'GIG' ? Math.round(base * 0.85) : base;

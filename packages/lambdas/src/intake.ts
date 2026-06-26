@@ -1,10 +1,10 @@
 import { BusinessError } from '@bmo/shared';
 import type { IntakeRequest, IntakeResponse } from './contracts';
-import { hashString, maybeTransientFailure, simulateLatency } from './util';
+import { hashString, maybeTransientFailure, simulateWork } from './util';
 
 /** bmo-intake-fn — acknowledges a new application from either channel. */
 export async function intakeHandler(req: IntakeRequest): Promise<IntakeResponse> {
-  await simulateLatency(40, 120);
+  await simulateWork('bmo-intake-fn');
   maybeTransientFailure('bmo-intake-fn');
   if (!req.applicant?.trim()) {
     throw new BusinessError('ValidationError', 'applicant name is required', false);
