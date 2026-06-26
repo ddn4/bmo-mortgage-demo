@@ -18,7 +18,7 @@
     "happy-path": "node packages/client/dist/cli.js happy-path",
     "api": "node packages/api/dist/server.js",
     "ui": "npm --workspace @bmo/ui run dev",
-    "dev": "npm run build && concurrently -n worker,api,ui -c blue,green,magenta \"npm:worker:local\" \"npm:api\" \"npm:ui\"",
+    "dev": "npm run build && concurrently --kill-others-on-fail -n worker,api,ui -c blue,green,magenta \"npm:worker:local\" \"npm:api\" \"npm:ui\"",
     "smoke": "bash scripts/smoke.sh",
     "bundle:worker": "node scripts/build-worker-bundle.mjs",
     "build:lambdas": "node scripts/build-lambdas.mjs",

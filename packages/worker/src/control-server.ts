@@ -40,6 +40,20 @@ export function startControlServer(): void {
     res.statusCode = 405;
     res.end(JSON.stringify({ error: 'method not allowed' }));
   });
+  // The control plane is OPTIONAL — never let a port conflict (e.g. a leftover
+  // worker already bound to :8088) crash the worker. Without the error handler an
+  // EADDRINUSE 'error' event is unhandled and takes the whole process down, which
+  // stops the worker polling and makes every query/UI detail fail.
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(
+        `[worker] control plane port ${port} in use (another worker?); fault toggle unavailable on this worker — continuing to poll.`,
+      );
+    } else {
+      console.warn(`[worker] control plane error: ${err.message} — continuing to poll.`);
+    }
+  });
+
   server.listen(port, () => {
     console.log(`[worker] control plane on :${port} (GET/POST /control/fault)`);
   });
