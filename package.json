@@ -20,12 +20,16 @@
     "ui": "npm --workspace @bmo/ui run dev",
     "dev": "npm run build && concurrently -n worker,api,ui -c blue,green,magenta \"npm:worker:local\" \"npm:api\" \"npm:ui\"",
     "smoke": "bash scripts/smoke.sh",
+    "bundle:worker": "node scripts/build-worker-bundle.mjs",
+    "build:lambdas": "node scripts/build-lambdas.mjs",
+    "build:worker:lambda": "npm run build && npm run bundle:worker && node scripts/build-worker-lambda.mjs",
     "temporal:dev": "temporal server start-dev",
     "temporal:dev:persist": "mkdir -p .temporal && temporal server start-dev --db-filename .temporal/dev.db"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",
     "concurrently": "^9.1.0",
+    "esbuild": "^0.24.0",
     "typescript": "~5.4.5"
   }
 }

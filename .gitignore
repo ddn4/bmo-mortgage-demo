@@ -11,6 +11,8 @@ out/
 # Pre-bundled workflow code (bundleWorkflowCode output)
 **/workflow-bundle.js
 .aws-sam/
+# Lambda build artifacts (esbuild output for SAM)
+infra/.build/
 
 # Environment & secrets
 .env

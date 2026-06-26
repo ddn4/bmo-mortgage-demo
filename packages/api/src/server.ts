@@ -85,6 +85,23 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
 async function main(): Promise<void> {
   await app.register(cors, { origin: true });
 
+  // In the container (EKS), the API also serves the built UI so it's a single
+  // demo-app image (SPEC §5). Set UI_DIST to the UI build dir; in local dev the
+  // Vite server serves the UI and proxies /api, so this stays unset.
+  const uiDist = process.env.UI_DIST;
+  if (uiDist) {
+    const { default: fastifyStatic } = await import('@fastify/static');
+    await app.register(fastifyStatic, { root: uiDist, prefix: '/' });
+    // SPA fallback: non-/api routes serve index.html.
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/api')) {
+        reply.code(404).send({ error: 'not found' });
+        return;
+      }
+      reply.sendFile('index.html');
+    });
+  }
+
   app.get('/api/health', async () => ({ ok: true }));
 
   // Specialist console: create a new application (SPECIALIST channel).

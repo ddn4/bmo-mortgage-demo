@@ -1,0 +1,18 @@
+# Traefik IngressRoute exposing the demo-app at a public *.tmprl-demo.cloud URL
+# on the sa-demo cluster (SPEC §8). Adjust the host and entryPoint/TLS resolver
+# to match the cluster's Traefik setup.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: bmo-demo-app
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`bmo-mortgage.tmprl-demo.cloud`)
+      kind: Rule
+      services:
+        - name: bmo-demo-app
+          port: 80
+  tls:
+    certResolver: default

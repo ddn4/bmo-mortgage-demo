@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  BMO mortgage demo — the seven Temporal-free business Lambdas, the serverless
+  Temporal worker Lambda, and the IAM role Temporal assumes to invoke the worker.
+  Deploy to us-east-1 (co-located with the Temporal Cloud namespace, SPEC §8).
+
+Parameters:
+  FunctionPrefix:
+    Type: String
+    Default: bmo
+    Description: Prefix for all function names (matches BMO_FN_PREFIX used by the invoker).
+  TemporalPrincipalArn:
+    Type: String
+    Description: >
+      The AWS principal ARN that Temporal Cloud uses to assume the invoke role.
+      Provided by Temporal during Serverless Workers (pre-release) onboarding.
+  TemporalExternalId:
+    Type: String
+    NoEcho: true
+    Description: Shared secret Temporal includes when assuming the invoke role (sts:ExternalId).
+  WorkerMemoryMb:
+    Type: Number
+    Default: 512
+  BuildId:
+    Type: String
+    Default: v1
+    Description: >
+      Worker build identifier. MUST match the buildId in the worker code and the
+      Worker Deployment Version created in Temporal Cloud (PINNED versioning).
+  TemporalConfigFile:
+    Type: String
+    Default: temporal.toml
+    Description: Bundled Temporal client-config filename, relative to the task root.
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 30
+
+Resources:
+  # --------------------------------------------------------------------------
+  # Business Lambdas (zero Temporal dependency). They share one esbuild bundle
+  # (infra/.build/business, built by `npm run build:lambdas`) but each is an
+  # independent function with its own handler export and log group (SPEC §4.3).
+  # --------------------------------------------------------------------------
+  IntakeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-intake-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.intake
+  IncomeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-income-verification-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.income
+  CustomerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-customer-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.customer
+  CreditFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-credit-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.credit
+  RiskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-risk-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.risk
+  RateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-rate-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.rate
+  SyndicationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-syndication-fn'
+      CodeUri: ../.build/business
+      Handler: lambda.syndication
+      Timeout: 120 # long-running handoff; the activity heartbeats
+
+  # --------------------------------------------------------------------------
+  # Serverless Temporal worker. Invoked on demand by Temporal's WCI; scales to
+  # zero. CodeUri (infra/.build/worker) is assembled by `npm run build:worker:lambda`
+  # and MUST include the @temporalio/* node_modules with the LINUX core-bridge —
+  # build with `sam build --use-container` or a layer (see infra/README.md).
+  # AutoPublishAlias publishes a version each deploy -> a qualified (non-$LATEST)
+  # ARN to map to the Worker Deployment Version (PINNED).
+  # --------------------------------------------------------------------------
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${FunctionPrefix}-worker'
+      CodeUri: ../.build/worker
+      Handler: worker.lambda.handler
+      MemorySize: !Ref WorkerMemoryMb
+      Timeout: 900 # Lambda's 15-min ceiling; activities must fit or heartbeat
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          INVOKER_MODE: cloud
+          BMO_FN_PREFIX: !Sub '${FunctionPrefix}-'
+          BMO_BUILD_ID: !Ref BuildId
+          TEMPORAL_CONFIG_FILE: !Ref TemporalConfigFile
+      Policies:
+        # The worker's activities invoke the business Lambdas.
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionPrefix}-*-fn'
+
+  # --------------------------------------------------------------------------
+  # The role Temporal Cloud assumes to invoke the worker (SPEC §8). Capture the
+  # RoleARN + ExternalID and register them on the Worker Deployment Version.
+  # --------------------------------------------------------------------------
+  TemporalInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${FunctionPrefix}-temporal-invoke-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref TemporalPrincipalArn
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref TemporalExternalId
+      Policies:
+        - PolicyName: invoke-worker
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt WorkerFunction.Arn
+                  - !Sub '${WorkerFunction.Arn}:*'
+
+Outputs:
+  WorkerAliasArn:
+    Description: Qualified worker ARN (alias) to map to the Worker Deployment Version.
+    Value: !Sub '${WorkerFunction.Arn}:live'
+  TemporalInvokeRoleArn:
+    Description: RoleARN to register on the Worker Deployment Version.
+    Value: !GetAtt TemporalInvokeRole.Arn
+  BusinessFunctionNames:
+    Description: The seven business function names the worker invokes.
+    Value: !Sub '${FunctionPrefix}-intake-fn, ${FunctionPrefix}-income-verification-fn, ${FunctionPrefix}-customer-fn, ${FunctionPrefix}-credit-fn, ${FunctionPrefix}-risk-fn, ${FunctionPrefix}-rate-fn, ${FunctionPrefix}-syndication-fn'

@@ -251,6 +251,11 @@ This local→cloud flow is exactly what was requested and is how the reference r
 
 ## 8. AWS + Temporal Cloud setup (runbook outline)
 
+> **Implemented (credential-free) in [`infra/`](infra/README.md):** SAM template (7 business Lambdas +
+> serverless worker Lambda + Temporal invoke role), the `@temporalio/lambda-worker` entrypoint, Dockerfile,
+> k8s manifests, and deploy scripts. Authored and locally verified where possible; not yet deployed. The
+> bullets below are the deploy-time runbook.
+
 - **AWS account:** SA account **429214323166**. CLI creds via the JIT tool:
   `access account --aws-account-id 429214323166 --write`.
 - **Regions (resolved):** us-west is *not* required. Co-locate the **Temporal Cloud namespace +

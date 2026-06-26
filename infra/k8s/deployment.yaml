@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bmo-demo-app
+  labels: { app: bmo-demo-app }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bmo-demo-app }
+  template:
+    metadata:
+      labels: { app: bmo-demo-app }
+    spec:
+      containers:
+        - name: demo-app
+          # Replace with the pushed ECR image, e.g.
+          # <acct>.dkr.ecr.us-west-1.amazonaws.com/bmo-demo-app:latest
+          image: REPLACE_WITH_ECR_IMAGE
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: UI_DIST
+              value: /app/packages/ui/dist
+            # Temporal Cloud connection — from the temporal-creds Secret.
+            - name: TEMPORAL_ADDRESS
+              valueFrom: { secretKeyRef: { name: temporal-creds, key: address } }
+            - name: TEMPORAL_NAMESPACE
+              valueFrom: { secretKeyRef: { name: temporal-creds, key: namespace } }
+            - name: TEMPORAL_API_KEY
+              valueFrom: { secretKeyRef: { name: temporal-creds, key: apiKey } }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }

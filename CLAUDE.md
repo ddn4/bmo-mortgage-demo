@@ -105,6 +105,9 @@ WCI-driven Lambda invocation / scale-to-zero is exercised locally.
 
 ## Deploy (cloud phase) — see SPEC.md for the full runbook
 
+> Credential-free cloud artifacts are scaffolded in `infra/` (SAM, IAM, `lambda-worker` entrypoint,
+> Dockerfile, k8s, deploy scripts) — authored/verified locally, not deployed. See `infra/README.md`.
+
 1. AWS access: SA account **429214323166** (`access account --aws-account-id 429214323166 --write`
    for CLI creds). **Regions:** the Temporal Cloud namespace + business Lambdas + worker Lambda
    co-locate in **`us-east-1`** (matches the shared reference repo; eastern US, closest major region

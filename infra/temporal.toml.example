@@ -1,0 +1,19 @@
+# Temporal client config for the serverless worker (@temporalio/lambda-worker
+# loads temporal.toml from $LAMBDA_TASK_ROOT). Copy to temporal.toml, fill in
+# your namespace, and package it with the worker artifact.
+#
+# DO NOT commit a real api_key. Inject the key at deploy time via encrypted Lambda
+# environment variables / Secrets Manager and reference it, rather than hardcoding
+# it here. Verify the exact key names against the pre-release lambda-worker docs:
+# https://docs.temporal.io/develop/typescript/workers/serverless-workers/aws-lambda
+
+[profile.default]
+# AWS-hosted Temporal Cloud namespace, us-east-1 (SPEC §8).
+address = "<namespace-id>.<account-id>.tmprl.cloud:7233"
+namespace = "<namespace-id>.<account-id>"
+# API-key auth (the demo's chosen method); store the secret out-of-band.
+api_key = "${TEMPORAL_API_KEY}"
+
+[profile.default.tls]
+# Temporal Cloud requires TLS; enabled by default for *.tmprl.cloud addresses.
+disabled = false

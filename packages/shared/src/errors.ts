@@ -23,3 +23,22 @@ export class BusinessError extends Error {
     this.retryable = retryable;
   }
 }
+
+/**
+ * A thrown error can't cross the AWS Lambda invoke boundary as a typed object, so
+ * the deployed Lambda handlers return this envelope when a BusinessError occurs;
+ * the cloud invoker reconstructs the BusinessError from it. Locally the handler
+ * just throws — both paths converge at the activity's BusinessError translation.
+ */
+export interface BusinessErrorEnvelope {
+  __businessError: { type: BusinessErrorType; message: string; retryable: boolean };
+}
+
+export function isBusinessErrorEnvelope(value: unknown): value is BusinessErrorEnvelope {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '__businessError' in value &&
+    typeof (value as BusinessErrorEnvelope).__businessError?.type === 'string'
+  );
+}

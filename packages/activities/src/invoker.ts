@@ -1,4 +1,4 @@
-import type { LambdaName } from '@bmo/shared';
+import { BusinessError, isBusinessErrorEnvelope, type LambdaName } from '@bmo/shared';
 import { handlers } from '@bmo/lambdas';
 
 /**
@@ -40,11 +40,17 @@ function cloudInvoker(): Invoker {
       );
       const text = out.Payload ? Buffer.from(out.Payload).toString('utf8') : 'null';
       if (out.FunctionError) {
-        // M5 TODO: reconstruct BusinessError from the function's error envelope so
-        // retryable/non-retryable classification survives the Lambda boundary.
+        // Unhandled Lambda error (not a typed BusinessError) — let it retry.
         throw new Error(`Lambda ${fn} returned FunctionError: ${text}`);
       }
-      return JSON.parse(text) as TRes;
+      const parsed = JSON.parse(text) as unknown;
+      // Typed business error returned by the handler — rethrow so the activity
+      // translates it to a (non-)retryable ApplicationFailure, same as local.
+      if (isBusinessErrorEnvelope(parsed)) {
+        const { type, message, retryable } = parsed.__businessError;
+        throw new BusinessError(type, message, retryable);
+      }
+      return parsed as TRes;
     },
   };
   return cloud;

@@ -83,3 +83,12 @@ node packages/client/dist/cli.js partner-push --name "Partner Lead"
 | `WORKER_VERSIONING` | `true` to enable Worker Versioning (PINNED). Requires a current Worker Deployment Version. |
 | `MAX_CONCURRENT_ACTIVITIES` | Caps activity concurrency to *simulate* a single Lambda (default 5). |
 | `INVOKER_MODE` | `local` (default, in-process handlers) \| `cloud` (real Lambda invoke — M5). |
+
+## Cloud (M5) — scaffolded, not deployed
+
+The cloud artifacts (SAM for the 7 business Lambdas + serverless worker Lambda + IAM role, the
+`@temporalio/lambda-worker` entrypoint, Dockerfile, k8s manifests, and deploy scripts) live in
+[`infra/`](infra/README.md). They're authored and locally verified where possible, but **nothing is
+deployed** — running them needs AWS (SA acct 429214323166) + Temporal Cloud credentials and the
+pre-release Serverless Workers feature. See `infra/README.md` for the runbook and the items that need
+live validation.

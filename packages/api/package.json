@@ -12,6 +12,7 @@
     "@bmo/workflows": "*",
     "@temporalio/client": "~1.18.1",
     "@fastify/cors": "^11.0.0",
+    "@fastify/static": "^8.0.0",
     "fastify": "^5.8.0"
   }
 }
