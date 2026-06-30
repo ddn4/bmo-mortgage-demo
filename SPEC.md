@@ -322,9 +322,11 @@ Target a rough first pass after the holiday period (per the outline); finalize t
 
 1. **RESOLVED — Serverless live demo confirmed.** The pre-release feature can be shown to BMO live;
    it's the headline of the cloud demo. We still keep the long-lived worker as the local-dev runtime
-   and a live-demo safety net (§6). **Caveat (M5, 2026-06):** Serverless Workers is enabled and the
-   Worker Deployment Version is wired, but the **WCI is not auto-invoking** the worker (see §8 / open
-   item) — runs currently need a manual pre-warm invoke; escalate to the Serverless Workers team.
+   and a live-demo safety net (§6). **VERIFIED WORKING (M5, 2026-06-30):** Serverless Workers auto-invoke
+   end-to-end — a fresh workflow scales from zero and completes with no manual intervention (~16s), and a
+   15-app burst auto-scaled to 30+ concurrent worker invocations, all completing in ~40s. (An earlier
+   pre-release scaler defect that suppressed auto-invocation was fixed server-side by the Serverless
+   Workers team; no change was needed on our side.)
 2. **UI framework.** Vite+React+TS (recommended — polish, matches their team) vs. a single embedded
    HTML page like the reference repo (faster, less polish). *Recommendation: Vite+React+TS.*
 3. **RESOLVED — Real business Lambdas.** Build real, independently deployed, Temporal-free Lambdas
