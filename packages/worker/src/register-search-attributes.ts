@@ -10,7 +10,7 @@ const KEYWORD = 2;
  * (SPEC §4.6). Safe to call repeatedly — an "already exists" error is ignored.
  *
  * The OperatorService is NOT available on Temporal Cloud; there the attributes
- * are created once via the Cloud UI / tcld during the M5 cloud setup.
+ * are created once via the Cloud UI / `temporal-cloud` CLI during the M5 cloud setup.
  */
 export async function registerSearchAttributes(address: string, namespace: string): Promise<void> {
   const connection = await Connection.connect({ address });

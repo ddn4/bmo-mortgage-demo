@@ -13,7 +13,13 @@ const WORKFLOW_TYPE = 'mortgageApplicationWorkflow';
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 async function getClient(): Promise<Client> {
-  const connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233' });
+  // API-key + TLS when connecting to Temporal Cloud (creds via env); plaintext
+  // localhost for local dev. Mirrors packages/api/src/temporal.ts.
+  const apiKey = process.env.TEMPORAL_API_KEY;
+  const connection = await Connection.connect({
+    address: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233',
+    ...(apiKey ? { apiKey, tls: true } : {}),
+  });
   return new Client({ connection, namespace: process.env.TEMPORAL_NAMESPACE ?? 'default' });
 }
 

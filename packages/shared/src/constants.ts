@@ -43,7 +43,7 @@ export const RISK_SENSITIVE_FIELDS: readonly string[] = ['income', 'creditScore'
 /**
  * Custom Search Attributes upserted by the workflow for list/filter (SPEC §4.6).
  * Registered automatically against the local dev server on worker boot; on
- * Temporal Cloud they are created via the Cloud UI / tcld (M5).
+ * Temporal Cloud they are created via the Cloud UI / `temporal-cloud` CLI (M5).
  */
 export const SEARCH_ATTR = {
   STATUS: 'applicationStatus',

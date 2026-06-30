@@ -17,7 +17,7 @@ echo "› ensuring ECR repo exists…"
 aws ecr describe-repositories --region "$ECR_REGION" --repository-names "$IMAGE_REPO" >/dev/null 2>&1 \
   || aws ecr create-repository --region "$ECR_REGION" --repository-name "$IMAGE_REPO" >/dev/null
 
-echo "› docker build + push $IMAGE…"
+echo "› docker build + push ${IMAGE}…"
 aws ecr get-login-password --region "$ECR_REGION" | docker login --username AWS --password-stdin "$ECR"
 docker build --platform linux/amd64 -f infra/docker/Dockerfile -t "$IMAGE" .
 docker push "$IMAGE"

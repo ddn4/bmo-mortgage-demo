@@ -3,22 +3,29 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   BMO mortgage demo — the seven Temporal-free business Lambdas, the serverless
   Temporal worker Lambda, and the IAM role Temporal assumes to invoke the worker.
-  Deploy to us-east-2 (co-located with the Temporal Cloud namespace, SPEC §8).
+  Deploy to us-east-1 (co-located with the Temporal Cloud namespace, SPEC §8).
 
 Parameters:
   FunctionPrefix:
     Type: String
     Default: bmo
     Description: Prefix for all function names (matches BMO_FN_PREFIX used by the invoker).
-  TemporalPrincipalArn:
-    Type: String
-    Description: >
-      The AWS principal ARN that Temporal Cloud uses to assume the invoke role.
-      Provided by Temporal during Serverless Workers (pre-release) onboarding.
   TemporalExternalId:
     Type: String
     NoEcho: true
-    Description: Shared secret Temporal includes when assuming the invoke role (sts:ExternalId).
+    Description: >
+      Confused-deputy guard (sts:ExternalId). A value YOU choose (5-45 chars); the
+      same value must be passed to `create-version --aws-lambda-assume-role-external-id`.
+  TemporalAddress:
+    Type: String
+    Description: Temporal Cloud gRPC endpoint the worker connects to (e.g. us-east-1.aws.api.temporal.io:7233).
+  TemporalNamespace:
+    Type: String
+    Description: Temporal Cloud namespace (e.g. ddn4-serverless-mortgage.sdvdw).
+  TemporalApiKey:
+    Type: String
+    NoEcho: true
+    Description: Temporal Cloud API key the worker uses to authenticate (encrypted at rest on the Lambda).
   WorkerMemoryMb:
     Type: Number
     Default: 512
@@ -28,14 +35,10 @@ Parameters:
     Description: >
       Worker build identifier. MUST match the buildId in the worker code and the
       Worker Deployment Version created in Temporal Cloud (PINNED versioning).
-  TemporalConfigFile:
-    Type: String
-    Default: temporal.toml
-    Description: Bundled Temporal client-config filename, relative to the task root.
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Architectures: [arm64]
     MemorySize: 256
     Timeout: 30
@@ -103,16 +106,28 @@ Resources:
     Properties:
       FunctionName: !Sub '${FunctionPrefix}-worker'
       CodeUri: ../.build/worker
-      Handler: worker.lambda.handler
+      Handler: index.handler
       MemorySize: !Ref WorkerMemoryMb
-      Timeout: 900 # Lambda's 15-min ceiling; activities must fit or heartbeat
+      # Worker lifetime ≈ this Timeout (lambda-worker polls until ~Timeout-7s; no
+      # idle shutdown). 120s lets a worker handle a burst then scale to zero ~2min
+      # after the last task — vs lingering the full 15min. Raise if activities
+      # ever run longer than the window (they'd otherwise be abandoned + retried).
+      Timeout: 120
       AutoPublishAlias: live
       Environment:
         Variables:
           INVOKER_MODE: cloud
-          BMO_FN_PREFIX: !Sub '${FunctionPrefix}-'
+          # LambdaName constants (@bmo/shared) already carry the full deployed
+          # name (e.g. 'bmo-intake-fn'), so the invoker must NOT add a prefix —
+          # an empty value avoids a doubled 'bmo-bmo-intake-fn'. FunctionPrefix
+          # below still names the deployed functions.
+          BMO_FN_PREFIX: ''
           BMO_BUILD_ID: !Ref BuildId
-          TEMPORAL_CONFIG_FILE: !Ref TemporalConfigFile
+          # @temporalio/lambda-worker reads these env vars at startup (env config).
+          # Explicit env vars avoid temporal.toml ${VAR} interpolation ambiguity.
+          TEMPORAL_ADDRESS: !Ref TemporalAddress
+          TEMPORAL_NAMESPACE: !Ref TemporalNamespace
+          TEMPORAL_API_KEY: !Ref TemporalApiKey
       Policies:
         # The worker's activities invoke the business Lambdas.
         - Statement:
@@ -128,12 +143,21 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${FunctionPrefix}-temporal-invoke-role'
+      MaxSessionDuration: 3600 # 1 hour (matches Temporal's serverless-worker template)
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref TemporalPrincipalArn
+              # The five Temporal Cloud WCI (Worker Controller Instance) roles — one
+              # per Cloud cell — that assume this role to invoke the worker Lambda.
+              # Fixed, public values from the Serverless Workers docs (Cloud only).
+              AWS:
+                - arn:aws:iam::902542641901:role/wci-lambda-invoke
+                - arn:aws:iam::160190466495:role/wci-lambda-invoke
+                - arn:aws:iam::819232936619:role/wci-lambda-invoke
+                - arn:aws:iam::829909441867:role/wci-lambda-invoke
+                - arn:aws:iam::354116250941:role/wci-lambda-invoke
             Action: sts:AssumeRole
             Condition:
               StringEquals:
@@ -144,7 +168,9 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: lambda:InvokeFunction
+                Action:
+                  - lambda:InvokeFunction
+                  - lambda:GetFunction
                 Resource:
                   - !GetAtt WorkerFunction.Arn
                   - !Sub '${WorkerFunction.Arn}:*'

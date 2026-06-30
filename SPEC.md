@@ -258,15 +258,15 @@ This local→cloud flow is exactly what was requested and is how the reference r
 
 - **AWS account:** SA account **429214323166**. CLI creds via the JIT tool:
   `access account --aws-account-id 429214323166 --write`.
-- **Regions (resolved):** Co-locate the **Temporal Cloud namespace + business Lambdas + worker
-  Lambda** in **`us-east-2`** (Ohio) — the region our AWS account access is scoped to. (Originally
-  scoped to us-east-1 to match the reference repo; changed to us-east-2 per available access.)
-  **Confirm Temporal Cloud + pre-release Serverless Workers support `us-east-2`** with the account
-  team. The **UI stays on `sa-demo` EKS (`us-west-1`)** for the easy public `*.tmprl-demo.cloud` URL;
-  cross-region UI→Temporal Cloud is just gRPC over the internet and adds no per-application latency.
-  Workers need not share the namespace's region — co-location is a latency optimization, not a
-  requirement.
-- **Temporal Cloud:** an **AWS-hosted namespace** in `us-east-2` (provider must match the Lambda
+- **Regions (resolved — DEPLOYED):** The **Temporal Cloud namespace + business Lambdas + worker
+  Lambda** are co-located in **`us-east-1`** (N. Virginia). The namespace
+  `ddn4-serverless-mortgage.sdvdw` was created in `aws-us-east-1`; AWS account access was verified to
+  allow **both** us-east-1 and us-east-2, so the Lambdas co-locate with the namespace in us-east-1.
+  (Earlier drafts said us-east-2 on the assumption access was scoped there — not the case.) The **UI
+  stays on `sa-demo` EKS (`us-west-1`)** for the easy public `*.tmprl-demo.cloud` URL; cross-region
+  UI→Temporal Cloud is just gRPC over the internet and adds no per-application latency. Workers need
+  not share the namespace's region — co-location is a latency optimization, not a requirement.
+- **Temporal Cloud:** an **AWS-hosted namespace** in `us-east-1` (provider must match the Lambda
   compute provider) with **Serverless Workers enabled** — pre-release, request via account team /
   support ticket. API key → AWS Secrets Manager.
 - **Worker Lambda:** deploy TS worker (pre-bundled workflows); publish a **versioned ARN**
@@ -322,15 +322,17 @@ Target a rough first pass after the holiday period (per the outline); finalize t
 
 1. **RESOLVED — Serverless live demo confirmed.** The pre-release feature can be shown to BMO live;
    it's the headline of the cloud demo. We still keep the long-lived worker as the local-dev runtime
-   and a live-demo safety net (§6). Remaining sub-check: confirm it's enabled in `us-east-2` (#4).
+   and a live-demo safety net (§6). **Caveat (M5, 2026-06):** Serverless Workers is enabled and the
+   Worker Deployment Version is wired, but the **WCI is not auto-invoking** the worker (see §8 / open
+   item) — runs currently need a manual pre-warm invoke; escalate to the Serverless Workers team.
 2. **UI framework.** Vite+React+TS (recommended — polish, matches their team) vs. a single embedded
    HTML page like the reference repo (faster, less polish). *Recommendation: Vite+React+TS.*
 3. **RESOLVED — Real business Lambdas.** Build real, independently deployed, Temporal-free Lambdas
    that stand in for BMO's existing functions (we don't have theirs). Activities are thin invokers;
    the same handler code runs in-process / SAM Local for local dev. See §4.3.
-4. **RESOLVED — Region.** `us-east-2` (Ohio) for the namespace + Lambdas (the region our AWS access
-   is scoped to); UI on `us-west-1` EKS. Remaining check: confirm Temporal Cloud + pre-release
-   Serverless Workers support `us-east-2`. See §8.
+4. **RESOLVED — Region.** `us-east-1` (N. Virginia) for the namespace + Lambdas (namespace
+   `ddn4-serverless-mortgage.sdvdw` lives there; AWS access allows us-east-1 and us-east-2, so Lambdas
+   co-locate in us-east-1); UI on `us-west-1` EKS. See §8.
 5. **Branding assets** — BMO/Capco/Temporal logos, color palette, any compliance/confidentiality
    marking for a customer-facing screen. *Recommendation: tasteful co-brand; confirm with Hussain.*
 6. **Reset/replay depth** — is `temporal workflow reset` worth showing, or keep recovery to

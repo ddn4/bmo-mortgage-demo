@@ -110,9 +110,10 @@ WCI-driven Lambda invocation / scale-to-zero is exercised locally.
 
 1. AWS access: SA account **429214323166** (`access account --aws-account-id 429214323166 --write`
    for CLI creds). **Regions:** the Temporal Cloud namespace + business Lambdas + worker Lambda
-   co-locate in **`us-east-2`** (Ohio — the region our AWS access is scoped to; confirm Temporal Cloud
-   + pre-release Serverless Workers support it there). The `sa-demo` EKS cluster that
-   hosts the UI is **`us-west-1`** — cross-region UI→Temporal is fine.
+   co-locate in **`us-east-1`** (N. Virginia — where the namespace `ddn4-serverless-mortgage.sdvdw`
+   lives; AWS access was verified to allow us-east-1 *and* us-east-2, so Lambdas co-locate with the
+   namespace in us-east-1). The `sa-demo` EKS cluster that hosts the UI is **`us-west-1`** —
+   cross-region UI→Temporal is fine.
 2. Temporal Cloud: an **AWS-hosted namespace** with **Serverless Workers enabled** (pre-release —
    request via account team / support ticket). Store the API key in AWS Secrets Manager.
 3. Deploy business Lambdas + the worker Lambda; publish a **versioned** worker ARN.

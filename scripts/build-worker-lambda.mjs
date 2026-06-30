@@ -8,7 +8,8 @@
 // `sam build --use-container` or a Lambda layer — see infra/README.md. Run
 // `npm run bundle:worker` first so workflow-bundle.js exists.
 import * as esbuild from 'esbuild';
-import { access, copyFile, mkdir } from 'node:fs/promises';
+import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,7 +23,10 @@ await access(bundle).catch(() => {
 await mkdir(outdir, { recursive: true });
 
 await esbuild.build({
-  entryPoints: { 'worker.lambda': path.join(root, 'packages', 'worker', 'src', 'worker.lambda.ts') },
+  // Output base name must be DOT-FREE: the Lambda Node runtime splits the handler
+  // on the first dot (module='index', export='handler'). A 'worker.lambda.js' file
+  // would resolve to module 'worker' and fail with Runtime.ImportModuleError.
+  entryPoints: { index: path.join(root, 'packages', 'worker', 'src', 'worker.lambda.ts') },
   outdir,
   bundle: true,
   platform: 'node',
@@ -33,5 +37,25 @@ await esbuild.build({
 });
 
 await copyFile(bundle, path.join(outdir, 'workflow-bundle.js'));
-console.log(`[worker-lambda] handler + workflow bundle → ${outdir}`);
-console.log('[worker-lambda] NOTE: supply @temporalio/* (Linux core-bridge) at package time — see infra/README.md');
+
+// Emit a package.json declaring the @temporalio runtime deps that were kept
+// EXTERNAL above (lambda-worker + activity; worker is pinned so its native
+// core-bridge version is explicit). `sam build --use-container` runs `npm install`
+// against this in a Linux container, fetching the linux-arm64 core-bridge.
+// @aws-sdk/client-lambda is provided by the Lambda Node.js runtime, so it's omitted.
+const require = createRequire(import.meta.url);
+const sdkVersion = require('@temporalio/worker/package.json').version;
+const workerPkg = {
+  name: 'bmo-worker-lambda',
+  version: '0.0.0',
+  private: true,
+  dependencies: {
+    '@temporalio/lambda-worker': sdkVersion,
+    '@temporalio/worker': sdkVersion,
+    '@temporalio/activity': sdkVersion,
+  },
+};
+await writeFile(path.join(outdir, 'package.json'), JSON.stringify(workerPkg, null, 2) + '\n');
+
+console.log(`[worker-lambda] handler + workflow bundle + package.json → ${outdir}`);
+console.log(`[worker-lambda] runtime deps pinned to @temporalio ${sdkVersion}; sam build --use-container installs the Linux core-bridge.`);
