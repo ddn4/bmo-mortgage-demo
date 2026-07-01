@@ -31,6 +31,10 @@ echo "› applying manifests (image pinned to $IMAGE)…"
 sed "s#REPLACE_WITH_ECR_IMAGE#${IMAGE}#" infra/k8s/deployment.yaml | kubectl apply -f -
 kubectl apply -f infra/k8s/service.yaml
 kubectl apply -f infra/k8s/ingressroute.yaml
+# The image tag is fixed (:latest), so `apply` alone won't restart pods when the
+# image content changes — force a rollout so the new :latest is pulled (the
+# Deployment omits imagePullPolicy, which defaults to Always for a :latest tag).
+kubectl rollout restart deployment/bmo-demo-app
 kubectl rollout status deployment/bmo-demo-app
 
 echo "› done. Public URL per the IngressRoute host (e.g. https://bmo-mortgage.tmprl-demo.cloud)."
