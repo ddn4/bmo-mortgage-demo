@@ -79,11 +79,22 @@ function fmtTime(iso?: string): string {
 
 // ---------------------------------------------------------------------------
 
-export function SpecialistConsole({ onCreated }: { onCreated: (id: string) => void }) {
+export function SpecialistConsole({
+  onCreated,
+  onBurst,
+  onCallbackAll,
+}: {
+  onCreated: (id: string) => void;
+  onBurst: (n: number) => void;
+  onCallbackAll: () => Promise<void> | void;
+}) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [docType, setDocType] = useState<'T4' | 'GIG'>('T4');
   const [busy, setBusy] = useState(false);
+  const [n, setN] = useState(15);
+  const [bursting, setBursting] = useState(false);
+  const [draining, setDraining] = useState(false);
 
   const submit = async (channel: 'specialist' | 'partner') => {
     setBusy(true);
@@ -95,6 +106,15 @@ export function SpecialistConsole({ onCreated }: { onCreated: (id: string) => vo
       onCreated(res.id);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const run = async (fn: () => Promise<void> | void, setB: (b: boolean) => void) => {
+    setB(true);
+    try {
+      await Promise.resolve(fn());
+    } finally {
+      setB(false);
     }
   };
 
@@ -122,6 +142,25 @@ export function SpecialistConsole({ onCreated }: { onCreated: (id: string) => vo
         </button>
         <button disabled={busy} className="secondary" onClick={() => submit('partner')} title="Idempotent signalWithStart into the same workflow type">
           Push from partner channel
+        </button>
+      </div>
+
+      <div className="console-divider" />
+      <div className="row burst-row">
+        <span className="mono muted">burst</span>
+        <input type="number" min={1} max={200} value={n} onChange={(e) => setN(Number(e.target.value))} />
+        <button disabled={bursting} onClick={() => run(() => onBurst(n), setBursting)}>
+          Start {n}
+        </button>
+      </div>
+      <div className="row">
+        <button
+          className="secondary"
+          disabled={draining}
+          onClick={() => run(onCallbackAll, setDraining)}
+          title="Send the lender funding callback to every application parked at syndication"
+        >
+          {draining ? 'Sending…' : 'Complete all at syndication'}
         </button>
       </div>
     </div>
@@ -523,85 +562,39 @@ export function ApplicationDetail({ state, code, onChanged }: { state: Applicati
 
 // ---------------------------------------------------------------------------
 
-export function OperationsPanel({
-  metrics,
+/**
+ * Ambient header status/controls: the live serverless-worker count (the
+ * scale-to-zero headline, doubling as the AWS Lambda console link) and a compact
+ * fault toggle. Sits in the top header so the left sidebar is the specialist's.
+ */
+export function HeaderStatus({
   fleet,
-  needsReview,
   faultOn,
   onToggleFault,
-  onBurst,
-  onCallbackAll,
 }: {
-  // Counts come from the server-side count() API so they're accurate beyond the
-  // 100-item list cap. needsReview is the "needs attention" set — apps awaiting
-  // manual intervention (retrying activity or NEEDS_REVIEW status).
-  metrics: { inFlight: number; completed: number };
-  // Live serverless fleet: workers polling right now (0 at idle → N under burst),
-  // plus the static architecture being orchestrated.
   fleet: Fleet;
-  needsReview: number;
   faultOn: boolean;
   onToggleFault: (on: boolean) => void;
-  onBurst: (n: number) => void;
-  onCallbackAll: () => Promise<void> | void;
 }) {
-  const [n, setN] = useState(30);
-  const [bursting, setBursting] = useState(false);
-  const [draining, setDraining] = useState(false);
-
-  const run = async (fn: () => Promise<void> | void, setBusy: (b: boolean) => void) => {
-    setBusy(true);
-    try {
-      await Promise.resolve(fn());
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <div className="card">
-      <h2>Operations</h2>
-      <div className="readouts">
-        <div><b>In-flight</b><span>{metrics.inFlight}</span></div>
-        <div><b>Completed</b><span>{metrics.completed}</span></div>
-        <div><b>Needs review</b><span className={needsReview ? 'warn-num' : ''}>{needsReview}</span></div>
-      </div>
-      <div className="fleet">
-        <div className="fleet-live">
-          <b>Serverless workers running</b>
-          <span className={fleet.workersRunning ? 'fleet-num live' : 'fleet-num'}>{fleet.workersRunning}</span>
-        </div>
-        <small className="muted">
-          {fleet.workersRunning} running now · one serverless worker Lambda, scaling to zero · orchestrating{' '}
-          {fleet.businessLambdas} business Lambdas
-        </small>
-        <a
-          className="fleet-link mono"
-          href="https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions"
-          target="_blank"
-          rel="noreferrer"
-          title="Opens the AWS Lambda console (us-east-1) — filter by 'bmo' to see the business functions + worker"
-        >
-          view the BMO Lambdas in AWS Console ↗
-        </a>
-      </div>
-      <div className="row burst-row">
-        <span className="mono muted">burst</span>
-        <input type="number" min={1} max={200} value={n} onChange={(e) => setN(Number(e.target.value))} />
-        <button disabled={bursting} onClick={() => run(() => onBurst(n), setBursting)}>Start {n} applications</button>
-      </div>
-      <div className="row">
-        <button className="secondary" disabled={draining} onClick={() => run(onCallbackAll, setDraining)} title="Send the lender funding callback to every application parked at syndication">
-          {draining ? 'Sending…' : 'Complete all at syndication'}
-        </button>
-      </div>
-      <div className="fault-row">
-        <span>Syndication partner schema:</span>
-        <button className={faultOn ? 'danger' : ''} onClick={() => onToggleFault(!faultOn)}>
-          {faultOn ? 'Clear fault' : 'Inject fault'}
-        </button>
-        <span className={faultOn ? 'fault-on' : 'fault-off'}>{faultOn ? 'BROKEN — syndications retrying' : 'healthy'}</span>
-      </div>
+    <div className="header-status">
+      <a
+        className="worker-pill"
+        href="https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions"
+        target="_blank"
+        rel="noreferrer"
+        title={`${fleet.workersRunning} serverless worker invocation(s) polling now · one worker Lambda, scales to zero · orchestrating ${fleet.businessLambdas} business Lambdas — open the AWS console`}
+      >
+        <span className={fleet.workersRunning ? 'worker-dot live' : 'worker-dot'} />
+        <b>{fleet.workersRunning}</b> worker{fleet.workersRunning === 1 ? '' : 's'} · scale-to-zero ↗
+      </a>
+      <button
+        className={`fault-pill ${faultOn ? 'on' : ''}`}
+        onClick={() => onToggleFault(!faultOn)}
+        title="Toggle the syndication-partner schema fault"
+      >
+        ⚡ {faultOn ? 'Fault injected' : 'Healthy'}
+      </button>
     </div>
   );
 }

@@ -76,6 +76,28 @@ h3 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 
 .tagline { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); letter-spacing: 0.02em; }
 .tagline::before { content: '▸ '; color: var(--teal); }
 
+/* Header status cluster: live worker pill (doubles as AWS console link) + fault toggle */
+.header-status { margin-left: auto; align-self: center; display: flex; align-items: center; gap: 0.7rem; }
+.worker-pill {
+  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.75rem;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+  font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-decoration: none; white-space: nowrap;
+}
+.worker-pill:hover { border-color: var(--teal); color: var(--ink); }
+.worker-pill b { font-family: var(--display); font-size: 0.95rem; color: var(--ink); }
+.worker-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.worker-dot.live { background: var(--teal); box-shadow: 0 0 8px var(--teal); animation: worker-pulse 1.6s ease-in-out infinite; }
+@keyframes worker-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.fault-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.75rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+  font-family: var(--mono); font-size: 0.72rem; color: var(--teal);
+}
+.fault-pill:hover { border-color: var(--teal); }
+.fault-pill.on { color: #1a0408; background: var(--amber); border-color: var(--amber); font-weight: 700; }
+.fault-pill.on:hover { box-shadow: 0 0 14px rgba(255, 181, 71, 0.5); }
+.console-divider { height: 1px; background: var(--line); margin: 1.1rem 0 0.9rem; }
+
 /* ---- Layout ---- */
 .layout { display: grid; grid-template-columns: 400px 1fr; gap: 1.4rem; padding: 1.4rem 1.6rem 3rem; align-items: start; max-width: 1680px; margin: 0 auto; }
 .col-left { display: flex; flex-direction: column; gap: 1.4rem; }

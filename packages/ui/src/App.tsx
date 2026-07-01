@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import { ApplicationDetail, ErrorBoundary, OperationsPanel, RunningList, SpecialistConsole, StatusHeader, TabBar } from './components';
+import { ApplicationDetail, ErrorBoundary, HeaderStatus, RunningList, SpecialistConsole, StatusHeader, TabBar } from './components';
 import type { AppListItem, ApplicationState, Fleet, StatusCounts, TriageItem } from './types';
 
 const EMPTY_COUNTS: StatusCounts = {
@@ -24,7 +24,6 @@ export function App() {
   const [detail, setDetail] = useState<ApplicationState | undefined>();
   const [triage, setTriage] = useState<TriageItem[]>([]);
   const [faultOn, setFaultOn] = useState(false);
-  const [metrics, setMetrics] = useState({ inFlight: 0, completed: 0 });
   const [fleet, setFleet] = useState<Fleet>({ workersRunning: 0, businessLambdas: 7, workerLambda: 1 });
   const [source, setSource] = useState('');
 
@@ -50,7 +49,6 @@ export function App() {
       api.statusCounts().then(setCounts),
       api.triage().then(setTriage),
       api.getFault().then((f) => setFaultOn(f.syndicationFault)),
-      api.metrics().then(setMetrics),
       api.fleet().then(setFleet),
     ]);
   }, [listStatus]);
@@ -133,6 +131,7 @@ export function App() {
           <span className="brand-temporal">Temporal</span>
         </div>
         <div className="tagline">Mortgage pipeline — orchestrating BMO's existing AWS Lambdas</div>
+        <HeaderStatus fleet={fleet} faultOn={faultOn} onToggleFault={toggleFault} />
       </header>
 
       <main className="layout">
@@ -143,15 +142,6 @@ export function App() {
                 openApp(id);
                 refreshList();
               }}
-            />
-          </ErrorBoundary>
-          <ErrorBoundary label="Operations">
-            <OperationsPanel
-              metrics={metrics}
-              fleet={fleet}
-              needsReview={needsAttention}
-              faultOn={faultOn}
-              onToggleFault={toggleFault}
               onBurst={burst}
               onCallbackAll={callbackAll}
             />
