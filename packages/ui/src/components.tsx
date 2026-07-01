@@ -163,8 +163,7 @@ export function AppList({
             className={`list-item ${it.id === selectedId ? 'active' : ''}`}
             onClick={() => onSelect(it.id)}
           >
-            <span className="mono">{it.id}</span>
-            <span className="grow">{it.applicant ?? '—'}</span>
+            <span className="mono grow">{it.id}</span>
             <span className={`chip chip-${it.channel ?? 'NA'}`}>{it.channel === 'PARTNER_QUEUE' ? 'partner' : 'specialist'}</span>
             <StatusBadge status={it.status ?? it.executionStatus} />
           </button>
@@ -466,6 +465,15 @@ export function OperationsPanel({
         <small className="muted">
           orchestrating {fleet.businessLambdas} business Lambdas via {fleet.workerLambda} serverless worker · scales to zero
         </small>
+        <a
+          className="fleet-link mono"
+          href="https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions"
+          target="_blank"
+          rel="noreferrer"
+          title="Opens the AWS Lambda console (us-east-1) — filter by 'bmo' to see the business functions + worker"
+        >
+          view the BMO Lambdas in AWS Console ↗
+        </a>
       </div>
       <div className="row burst-row">
         <span className="mono muted">burst</span>

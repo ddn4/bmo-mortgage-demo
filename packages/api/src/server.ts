@@ -222,7 +222,9 @@ async function main(): Promise<void> {
   // search attributes (SPEC §4.6). Enriched with app-level state via query.
   app.get('/api/applications', async (req) => {
     const q = req.query as { status?: string; channel?: string };
-    let query = `WorkflowType = '${WORKFLOW_TYPE}'`;
+    // Exclude terminated executions: their applicationStatus search attribute keeps
+    // its last value, so a status filter would otherwise surface cleaned-up apps.
+    let query = `WorkflowType = '${WORKFLOW_TYPE}' AND ExecutionStatus != 'Terminated'`;
     if (q.status) query += ` AND ${SEARCH_ATTR.STATUS} = '${q.status}'`;
     if (q.channel) query += ` AND ${SEARCH_ATTR.CHANNEL} = '${q.channel}'`;
     const client = await getClient();
@@ -232,31 +234,26 @@ async function main(): Promise<void> {
       executions.push(wf);
       if (executions.length >= 100) break;
     }
-    const enriched = await Promise.all(
-      executions.map(async (wf) => {
-        const id = idFromWorkflowId(wf.workflowId);
-        const base = {
-          id,
-          workflowId: wf.workflowId,
-          executionStatus: wf.status?.name ?? 'UNKNOWN',
-          startTime: wf.startTime,
-        };
-        try {
-          const state = await client.workflow.getHandle(wf.workflowId).query(getApplication);
-          return {
-            ...base,
-            status: state.status,
-            channel: state.channel,
-            applicant: state.application.applicant,
-            decision: state.decision,
-          };
-        } catch {
-          return base;
-        }
-      }),
-    );
-    enriched.sort((a, b) => (b.startTime?.getTime?.() ?? 0) - (a.startTime?.getTime?.() ?? 0));
-    return enriched;
+    // Derive status/channel from the indexed search attributes visibility already
+    // returns — NO per-workflow query. Queries need a live worker, so under
+    // scale-to-zero the old N+1 enrichment stalled the whole list (~30s). This is
+    // instant and worker-independent. (applicant/decision aren't search attributes,
+    // so they're shown in the detail pane, not the list.)
+    const saValue = (wf: { searchAttributes?: Record<string, unknown> }, key: string): string | undefined => {
+      const v = (wf.searchAttributes ?? {})[key];
+      const first = Array.isArray(v) ? v[0] : v;
+      return typeof first === 'string' ? first : undefined;
+    };
+    const items = executions.map((wf) => ({
+      id: idFromWorkflowId(wf.workflowId),
+      workflowId: wf.workflowId,
+      executionStatus: wf.status?.name ?? 'UNKNOWN',
+      startTime: wf.startTime,
+      status: saValue(wf, SEARCH_ATTR.STATUS),
+      channel: saValue(wf, SEARCH_ATTR.CHANNEL),
+    }));
+    items.sort((a, b) => (b.startTime?.getTime?.() ?? 0) - (a.startTime?.getTime?.() ?? 0));
+    return items;
   });
 
   // Full application state + observability timeline + any retrying activities.

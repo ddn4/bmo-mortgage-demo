@@ -252,6 +252,8 @@ select.filter { width: auto; margin: 0; padding: 0.3rem 0.5rem; font-family: var
 .fleet-num { font-family: var(--display); font-size: 2rem; font-weight: 700; color: var(--muted); transition: color 0.3s ease; }
 .fleet-num.live { color: var(--teal); text-shadow: 0 0 14px rgba(25, 227, 177, 0.45); }
 .fleet small { display: block; font-size: 0.66rem; color: var(--muted); margin-top: 0.25rem; }
+.fleet-link { display: inline-block; margin-top: 0.4rem; font-size: 0.68rem; color: var(--teal); text-decoration: none; border-bottom: 1px dashed rgba(25, 227, 177, 0.4); }
+.fleet-link:hover { border-bottom-style: solid; }
 
 /* ---- Panel error-boundary fallback ---- */
 .boundary-fallback { font-size: 0.8rem; opacity: 0.85; }
