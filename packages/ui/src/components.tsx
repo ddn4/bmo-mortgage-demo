@@ -1,7 +1,7 @@
 import { Component, useState, type ReactNode } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
 import { api } from './api';
-import type { AppListItem, ApplicationState, Fleet, StepEvent, TriageItem } from './types';
+import type { AppListItem, ApplicationState, Fleet, StatusCounts, StepEvent, TriageItem } from './types';
 
 /**
  * Panel-level error boundary. A transient bad shape from a poll (e.g. a detail
@@ -176,18 +176,111 @@ export function AppList({
 
 // ---------------------------------------------------------------------------
 
-function ProgressStrip({ status }: { status: string }) {
+function ProgressStrip({ status, compact }: { status: string; compact?: boolean }) {
   const current = PIPELINE.indexOf(status);
   return (
-    <div className="progress">
+    <div className={`progress ${compact ? 'progress-compact' : ''}`}>
       {PIPELINE.map((s, i) => (
-        <div key={s} className={`pip ${current >= i && current !== -1 ? 'done' : ''} ${s === status ? 'now' : ''}`}>
-          {STATUS_LABEL[s]}
+        <div
+          key={s}
+          className={`pip ${current >= i && current !== -1 ? 'done' : ''} ${s === status ? 'now' : ''}`}
+          title={STATUS_LABEL[s]}
+        >
+          {compact ? '' : STATUS_LABEL[s]}
         </div>
       ))}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The main-panel running list: one compact row per application in the current
+ * view, each with an inline progress strip. Stuck/retrying rows (and NEEDS_REVIEW)
+ * are highlighted. Clicking a row opens/focuses that app's detail tab.
+ */
+export function RunningList({
+  items,
+  stuckIds,
+  onOpen,
+}: {
+  items: AppListItem[];
+  stuckIds: Set<string>;
+  onOpen: (id: string) => void;
+}) {
+  if (items.length === 0) {
+    return <p className="muted list-empty">No applications in this view — create one on the left, or burst a batch.</p>;
+  }
+  return (
+    <div className="run-list">
+      {items.map((it) => {
+        const stuck = stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW';
+        const label = it.status ? (STATUS_LABEL[it.status] ?? it.status) : (it.executionStatus ?? '—');
+        return (
+          <button key={it.workflowId} className={`run-row ${stuck ? 'stuck' : ''}`} onClick={() => onOpen(it.id)}>
+            <span className="mono run-id">{it.id}</span>
+            <span className="run-applicant">{it.applicant ?? (it.channel === 'PARTNER_QUEUE' ? '(partner)' : '—')}</span>
+            <ProgressStrip status={it.status ?? ''} compact />
+            <span className={`run-status ${stuck ? 'warn' : ''}`}>
+              {stuck ? '⚠ ' : ''}
+              {label}
+            </span>
+            <span className={`chip chip-${it.channel ?? 'NA'}`}>{it.channel === 'PARTNER_QUEUE' ? 'partner' : 'specialist'}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// The pipeline stages shown as header segments (Needs attention is appended).
+const HEADER_STAGES = [
+  'INTAKE',
+  'INCOME_VERIFICATION',
+  'CROSS_REFERENCE',
+  'DECISION',
+  'RATE_ASSIGNED',
+  'SYNDICATION',
+  'COMPLETED',
+] as const;
+
+/**
+ * Dynamic status header: one segment per pipeline stage (+ Completed + Needs
+ * attention), each with a live count. Clicking a segment filters the list;
+ * clicking the active one clears back to the default (in-flight + stuck) view.
+ */
+export function StatusHeader({
+  counts,
+  needsAttention,
+  active,
+  onSelect,
+}: {
+  counts: StatusCounts;
+  needsAttention: number;
+  active: string;
+  onSelect: (filter: string) => void;
+}) {
+  const seg = (key: string, label: string, n: number, cls = '') => (
+    <button
+      key={key}
+      className={`seg ${cls} ${active === key ? 'active' : ''} ${n === 0 ? 'empty' : ''}`}
+      disabled={n === 0 && active !== key}
+      onClick={() => onSelect(active === key ? '' : key)}
+    >
+      <span className="seg-label">{label}</span>
+      <span className="seg-count">{n}</span>
+    </button>
+  );
+  return (
+    <div className="status-header">
+      {HEADER_STAGES.map((s) => seg(s, STATUS_LABEL[s], counts[s] ?? 0))}
+      {seg('NEEDS_ATTENTION', 'Needs attention', needsAttention, 'attn')}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 function UnifiedTimeline({ timeline }: { timeline: StepEvent[] }) {
   return (

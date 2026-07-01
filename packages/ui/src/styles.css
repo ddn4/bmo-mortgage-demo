@@ -164,6 +164,40 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: 
 .pip.done { background: rgba(25, 227, 177, 0.08); color: var(--teal); border-top-color: var(--teal); }
 .pip.now { background: rgba(26, 143, 227, 0.16); color: #8fccf7; border-top-color: var(--bmo); box-shadow: 0 0 14px rgba(26, 143, 227, 0.3); }
 
+/* Compact progress strip used in the running-list rows */
+.progress-compact { margin: 0; gap: 2px; }
+.progress-compact .pip { padding: 0; height: 7px; min-width: 10px; border-radius: 3px; border-top-width: 2px; }
+
+/* Dynamic status header (segments with live counts, click to filter) */
+.status-header { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.85rem; }
+.seg {
+  display: flex; align-items: baseline; gap: 0.4rem; padding: 0.32rem 0.7rem;
+  background: var(--panel-2); border: 1px solid var(--line-soft); border-top: 2px solid var(--line-soft);
+  border-radius: 999px; color: var(--muted); cursor: pointer; font-family: var(--body); font-size: 0.78rem;
+}
+.seg:hover:not(:disabled) { border-color: var(--line); color: var(--ink); }
+.seg.active { background: rgba(26, 143, 227, 0.16); color: #8fccf7; border-color: var(--bmo); border-top-color: var(--bmo); }
+.seg.attn.active { background: rgba(255, 181, 71, 0.16); color: var(--amber); border-color: var(--amber); border-top-color: var(--amber); }
+.seg.empty { opacity: 0.4; cursor: default; }
+.seg-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.seg-count { font-family: var(--display); font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+.seg.attn .seg-count { color: var(--amber); }
+
+/* Running list rows */
+.run-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.run-row {
+  display: grid; grid-template-columns: 8ch 1fr 190px 9rem auto; align-items: center; gap: 0.8rem;
+  width: 100%; text-align: left; padding: 0.6rem 0.8rem; cursor: pointer; color: var(--ink);
+  background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+}
+.run-row:hover { border-color: var(--line); background: var(--raise); }
+.run-row.stuck { border-left: 3px solid var(--amber); }
+.run-id { color: var(--muted); font-size: 0.82rem; }
+.run-applicant { font-family: var(--display); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-status { font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.run-status.warn { color: var(--amber); }
+.list-empty { padding: 1.4rem 0.4rem; }
+
 /* ---- Instrument readouts ---- */
 .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 1.1rem 0; }
 .facts div { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 0.55rem 0.7rem; }
