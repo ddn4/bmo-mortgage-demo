@@ -1,0 +1,20 @@
+# cert-manager Certificate for the demo-app's public hostname. The sa-demo
+# cluster issues per-host Let's Encrypt certs via the `letsencrypt` ClusterIssuer
+# (DNS-01 over Route53 for the tmprl-demo.cloud hosted zone) — this matches how
+# every other demo on the cluster gets a trusted cert. Traefik reads the
+# resulting `bmo-mortgage-tls` secret via the IngressRoute's tls.secretName.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bmo-mortgage-tls
+  namespace: default
+spec:
+  dnsNames:
+    - bmo-mortgage.tmprl-demo.cloud
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt
+  privateKey:
+    rotationPolicy: Always
+  secretName: bmo-mortgage-tls

@@ -30,6 +30,9 @@ kubectl get secret temporal-creds >/dev/null 2>&1 || {
 echo "› applying manifests (image pinned to $IMAGE)…"
 sed "s#REPLACE_WITH_ECR_IMAGE#${IMAGE}#" infra/k8s/deployment.yaml | kubectl apply -f -
 kubectl apply -f infra/k8s/service.yaml
+# cert-manager Certificate for the public hostname (Let's Encrypt via the cluster's
+# `letsencrypt` ClusterIssuer, DNS-01/Route53). Idempotent; issues once then renews.
+kubectl apply -f infra/k8s/certificate.yaml
 kubectl apply -f infra/k8s/ingressroute.yaml
 # The image tag is fixed (:latest), so `apply` alone won't restart pods when the
 # image content changes — force a rollout so the new :latest is pulled (the
