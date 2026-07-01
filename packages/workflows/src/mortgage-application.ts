@@ -66,7 +66,15 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
     upsertSearchAttributes({ [SEARCH_ATTR.STATUS]: [next] });
   };
 
+  // Mirror the applicant name to a search attribute so the running list can show
+  // it worker-independently (no per-workflow query). Re-upserted if edited.
+  const upsertApplicant = (): void => {
+    const name = state.application.applicant;
+    if (name) upsertSearchAttributes({ [SEARCH_ATTR.APPLICANT]: [name] });
+  };
+
   upsertSearchAttributes({ [SEARCH_ATTR.CHANNEL]: [input.channel], [SEARCH_ATTR.STATUS]: [state.status] });
+  upsertApplicant();
 
   // --- Handlers (set before any await so they are ready immediately) ---
   setHandler(getApplication, () => state);
@@ -76,6 +84,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
     (edit: EditRequest): ApplicationState => {
       (state.application as unknown as Record<string, unknown>)[edit.field] = edit.value;
       record('edit', 'COMPLETED', `${edit.field} = ${JSON.stringify(edit.value)}`);
+      if (edit.field === 'applicant') upsertApplicant();
       return state;
     },
     {

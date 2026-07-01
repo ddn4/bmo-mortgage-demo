@@ -15,17 +15,19 @@ const KEYWORD = 2;
 export async function registerSearchAttributes(address: string, namespace: string): Promise<void> {
   const connection = await Connection.connect({ address });
   try {
-    await connection.operatorService.addSearchAttributes({
-      namespace,
-      searchAttributes: Object.fromEntries(SEARCH_ATTRIBUTES.map((name) => [name, KEYWORD])),
-    });
-    console.log(`[worker] registered search attributes: ${SEARCH_ATTRIBUTES.join(', ')}`);
-  } catch (err) {
-    const msg = (err as Error).message ?? String(err);
-    if (/already exist/i.test(msg)) {
-      console.log('[worker] search attributes already registered');
-    } else {
-      console.warn(`[worker] search-attribute registration skipped: ${msg}`);
+    // Register each attribute independently so a newly-added one still lands even
+    // when others already exist (a batch call would fail on the first duplicate,
+    // e.g. against a persisted dev server that already has status/channel).
+    for (const name of SEARCH_ATTRIBUTES) {
+      try {
+        await connection.operatorService.addSearchAttributes({ namespace, searchAttributes: { [name]: KEYWORD } });
+        console.log(`[worker] registered search attribute: ${name}`);
+      } catch (err) {
+        const msg = (err as Error).message ?? String(err);
+        if (!/already exist/i.test(msg)) {
+          console.warn(`[worker] search-attribute '${name}' registration skipped: ${msg}`);
+        }
+      }
     }
   } finally {
     await connection.close();

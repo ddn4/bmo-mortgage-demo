@@ -250,7 +250,7 @@ export function TabBar({
     <div className="tab-bar">
       {tabs.map((t) => (
         <div key={t.id} className={`tab ${active === t.id ? 'active' : ''}`} onClick={() => onSelect(t.id)}>
-          <span className={t.id === 'applications' ? '' : 'mono'}>{t.label}</span>
+          <span>{t.label}</span>
           {t.id !== 'applications' && (
             <button
               className="tab-x"

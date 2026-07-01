@@ -16,6 +16,7 @@ const EMPTY_COUNTS: StatusCounts = {
 
 export function App() {
   const [items, setItems] = useState<AppListItem[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({}); // id → applicant, accumulated for tab labels
   const [counts, setCounts] = useState<StatusCounts>(EMPTY_COUNTS);
   const [statusFilter, setStatusFilter] = useState(''); // '' | <STATUS> | 'NEEDS_ATTENTION'
   const [openTabs, setOpenTabs] = useState<string[]>([]);
@@ -36,7 +37,16 @@ export function App() {
   // slow/failing endpoint never wipes the others' state.
   const refreshList = useCallback(async () => {
     await Promise.allSettled([
-      api.list(listStatus).then(setItems),
+      api.list(listStatus).then((list) => {
+        setItems(list);
+        // Remember names so an open tab keeps its label even after its row leaves
+        // the current filter (e.g. once it completes).
+        setNames((prev) => {
+          const next = { ...prev };
+          for (const it of list) if (it.applicant) next[it.id] = it.applicant;
+          return next;
+        });
+      }),
       api.statusCounts().then(setCounts),
       api.triage().then(setTriage),
       api.getFault().then((f) => setFaultOn(f.syndicationFault)),
@@ -110,7 +120,7 @@ export function App() {
     statusFilter === 'NEEDS_ATTENTION'
       ? items.filter((it) => stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW')
       : items;
-  const tabs = [{ id: 'applications', label: 'Applications' }, ...openTabs.map((id) => ({ id, label: `#${id}` }))];
+  const tabs = [{ id: 'applications', label: 'Applications' }, ...openTabs.map((id) => ({ id, label: names[id] ?? `#${id}` }))];
 
   return (
     <div className="app">

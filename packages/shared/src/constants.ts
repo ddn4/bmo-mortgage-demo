@@ -48,6 +48,7 @@ export const RISK_SENSITIVE_FIELDS: readonly string[] = ['income', 'creditScore'
 export const SEARCH_ATTR = {
   STATUS: 'applicationStatus',
   CHANNEL: 'channel',
+  APPLICANT: 'applicant',
 } as const;
 
-export const SEARCH_ATTRIBUTES: readonly string[] = [SEARCH_ATTR.STATUS, SEARCH_ATTR.CHANNEL];
+export const SEARCH_ATTRIBUTES: readonly string[] = [SEARCH_ATTR.STATUS, SEARCH_ATTR.CHANNEL, SEARCH_ATTR.APPLICANT];
