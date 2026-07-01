@@ -79,6 +79,22 @@ h3 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 
 /* ---- Layout ---- */
 .layout { display: grid; grid-template-columns: 400px 1fr; gap: 1.4rem; padding: 1.4rem 1.6rem 3rem; align-items: start; max-width: 1680px; margin: 0 auto; }
 .col-left { display: flex; flex-direction: column; gap: 1.4rem; }
+.col-right { display: flex; flex-direction: column; }
+
+/* Browser-style tab strip above the main content */
+.tab-bar { display: flex; gap: 4px; align-items: flex-end; padding-left: 0.2rem; }
+.tab {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line-soft); border-bottom: none;
+  border-radius: var(--r-sm) var(--r-sm) 0 0; color: var(--muted);
+  font-family: var(--body); font-size: 0.85rem; max-width: 18ch;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { background: var(--panel); color: var(--ink); border-color: var(--line); box-shadow: inset 0 2px 0 var(--bmo); }
+.tab > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .mono { font-size: 0.8rem; }
+.tab-x { border: none; background: none; color: var(--faint); cursor: pointer; font-size: 0.72rem; padding: 0 2px; line-height: 1; }
+.tab-x:hover { color: var(--red); }
 
 .card {
   background: linear-gradient(180deg, var(--panel), rgba(17, 27, 46, 0.72));

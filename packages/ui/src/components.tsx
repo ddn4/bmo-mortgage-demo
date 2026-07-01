@@ -1,7 +1,7 @@
 import { Component, useState, type ReactNode } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
 import { api } from './api';
-import type { AppListItem, ApplicationState, Fleet, StatusCounts, StepEvent, TriageItem } from './types';
+import type { AppListItem, ApplicationState, Fleet, StatusCounts, StepEvent } from './types';
 
 /**
  * Panel-level error boundary. A transient bad shape from a poll (e.g. a detail
@@ -130,52 +130,6 @@ export function SpecialistConsole({ onCreated }: { onCreated: (id: string) => vo
 
 // ---------------------------------------------------------------------------
 
-const FILTERABLE = [...PIPELINE, 'NEEDS_REVIEW'];
-
-export function AppList({
-  items,
-  selectedId,
-  onSelect,
-  statusFilter,
-  onStatusFilter,
-}: {
-  items: AppListItem[];
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  statusFilter: string;
-  onStatusFilter: (s: string) => void;
-}) {
-  return (
-    <div className="card">
-      <div className="list-head">
-        <h2>Applications ({items.length})</h2>
-        <select className="filter" value={statusFilter} onChange={(e) => onStatusFilter(e.target.value)} title="Filter by applicationStatus search attribute">
-          <option value="">all statuses</option>
-          {FILTERABLE.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-      <div className="list">
-        {items.length === 0 && <p className="muted">No applications yet — create one above.</p>}
-        {items.map((it) => (
-          <button
-            key={it.workflowId}
-            className={`list-item ${it.id === selectedId ? 'active' : ''}`}
-            onClick={() => onSelect(it.id)}
-          >
-            <span className="mono grow">{it.id}</span>
-            <span className={`chip chip-${it.channel ?? 'NA'}`}>{it.channel === 'PARTNER_QUEUE' ? 'partner' : 'specialist'}</span>
-            <StatusBadge status={it.status ?? it.executionStatus} />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 function ProgressStrip({ status, compact }: { status: string; compact?: boolean }) {
   const current = PIPELINE.indexOf(status);
   return (
@@ -276,6 +230,41 @@ export function StatusHeader({
     <div className="status-header">
       {HEADER_STAGES.map((s) => seg(s, STATUS_LABEL[s], counts[s] ?? 0))}
       {seg('NEEDS_ATTENTION', 'Needs attention', needsAttention, 'attn')}
+    </div>
+  );
+}
+
+/** Browser-style tab strip: the fixed 'Applications' home + one closable tab per open app. */
+export function TabBar({
+  tabs,
+  active,
+  onSelect,
+  onClose,
+}: {
+  tabs: { id: string; label: string }[];
+  active: string;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+}) {
+  return (
+    <div className="tab-bar">
+      {tabs.map((t) => (
+        <div key={t.id} className={`tab ${active === t.id ? 'active' : ''}`} onClick={() => onSelect(t.id)}>
+          <span className={t.id === 'applications' ? '' : 'mono'}>{t.label}</span>
+          {t.id !== 'applications' && (
+            <button
+              className="tab-x"
+              title="Close"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(t.id);
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -534,80 +523,25 @@ export function ApplicationDetail({ state, code, onChanged }: { state: Applicati
 
 // ---------------------------------------------------------------------------
 
-export function TriagePanel({
-  faultOn,
-  onToggleFault,
-  items,
-  onSelect,
-}: {
-  faultOn: boolean;
-  onToggleFault: (on: boolean) => void;
-  items: TriageItem[];
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="card triage">
-      <h2>Triage &amp; resolve</h2>
-      <div className="fault-row">
-        <span>Syndication partner schema:</span>
-        <button className={faultOn ? 'danger' : ''} onClick={() => onToggleFault(!faultOn)}>
-          {faultOn ? 'Clear fault' : 'Inject fault'}
-        </button>
-        <span className={faultOn ? 'fault-on' : 'fault-off'}>{faultOn ? 'BROKEN — syndications retrying' : 'healthy'}</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="muted">
-          No stuck applications. Inject the fault, then advance an application to syndication to see Temporal retry and
-          hold the state.
-        </p>
-      ) : (
-        items.map((it) => (
-          <div key={it.id} className="stuck" onClick={() => onSelect(it.id)}>
-            <div className="stuck-head">
-              <b>{it.applicant}</b> <span className="mono muted">#{it.id}</span> <StatusBadge status={it.status} />
-            </div>
-            {it.retrying.map((p, i) => (
-              <div key={i} className="stuck-reason">
-                ⚠ {p.activityType} · attempt {p.attempt} · {p.lastFailure}
-              </div>
-            ))}
-            <div className="stuck-payload mono">
-              applicant={it.application.applicant} · rate={it.application.rate ?? '—'}% · lender=
-              {it.application.lenderPartner ?? '—'}
-            </div>
-            <a
-              className="tlink"
-              href={`http://localhost:8233/namespaces/default/workflows/mortgage-app-${it.id}`}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              event history ↗
-            </a>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 export function OperationsPanel({
   metrics,
   fleet,
   needsReview,
+  faultOn,
+  onToggleFault,
   onBurst,
   onCallbackAll,
 }: {
   // Counts come from the server-side count() API so they're accurate beyond the
-  // 100-item list cap. needsReview is the Triage set — apps awaiting manual
-  // intervention (a retrying/stuck activity), not the rare NEEDS_REVIEW status.
+  // 100-item list cap. needsReview is the "needs attention" set — apps awaiting
+  // manual intervention (retrying activity or NEEDS_REVIEW status).
   metrics: { inFlight: number; completed: number };
   // Live serverless fleet: workers polling right now (0 at idle → N under burst),
   // plus the static architecture being orchestrated.
   fleet: Fleet;
   needsReview: number;
+  faultOn: boolean;
+  onToggleFault: (on: boolean) => void;
   onBurst: (n: number) => void;
   onCallbackAll: () => Promise<void> | void;
 }) {
@@ -638,7 +572,8 @@ export function OperationsPanel({
           <span className={fleet.workersRunning ? 'fleet-num live' : 'fleet-num'}>{fleet.workersRunning}</span>
         </div>
         <small className="muted">
-          orchestrating {fleet.businessLambdas} business Lambdas via {fleet.workerLambda} serverless worker · scales to zero
+          {fleet.workersRunning} running now · one serverless worker Lambda, scaling to zero · orchestrating{' '}
+          {fleet.businessLambdas} business Lambdas
         </small>
         <a
           className="fleet-link mono"
@@ -660,26 +595,14 @@ export function OperationsPanel({
           {draining ? 'Sending…' : 'Complete all at syndication'}
         </button>
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-export function CodeRevealPanel({ code }: { code: string }) {
-  const [open, setOpen] = useState(false);
-  const lines = code ? code.split('\n').length : 0;
-  return (
-    <div className="card code-reveal">
-      <div className="code-head" onClick={() => setOpen((o) => !o)}>
-        <h2>Workflow source — the durability code your engineers own</h2>
-        <span className="mono muted">{open ? 'hide' : `reveal · ${lines} lines of readable TypeScript ▾`}</span>
+      <div className="fault-row">
+        <span>Syndication partner schema:</span>
+        <button className={faultOn ? 'danger' : ''} onClick={() => onToggleFault(!faultOn)}>
+          {faultOn ? 'Clear fault' : 'Inject fault'}
+        </button>
+        <span className={faultOn ? 'fault-on' : 'fault-off'}>{faultOn ? 'BROKEN — syndications retrying' : 'healthy'}</span>
       </div>
-      {open && (
-        <pre className="code">
-          <code>{code || 'loading…'}</code>
-        </pre>
-      )}
     </div>
   );
 }
+
