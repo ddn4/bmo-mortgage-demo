@@ -272,6 +272,7 @@ async function main(): Promise<void> {
       status: saValue(wf, SEARCH_ATTR.STATUS),
       channel: saValue(wf, SEARCH_ATTR.CHANNEL),
       applicant: saValue(wf, SEARCH_ATTR.APPLICANT),
+      decision: saValue(wf, SEARCH_ATTR.DECISION),
     }));
     items.sort((a, b) => (b.startTime?.getTime?.() ?? 0) - (a.startTime?.getTime?.() ?? 0));
     return items;

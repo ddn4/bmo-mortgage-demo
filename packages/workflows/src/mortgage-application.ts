@@ -73,6 +73,12 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
     if (name) upsertSearchAttributes({ [SEARCH_ATTR.APPLICANT]: [name] });
   };
 
+  // Mirror the underwriting decision so the list can show the branch taken (e.g.
+  // a DECLINED app skips rate/syndication) without a per-workflow query.
+  const upsertDecision = (): void => {
+    if (state.decision) upsertSearchAttributes({ [SEARCH_ATTR.DECISION]: [state.decision] });
+  };
+
   upsertSearchAttributes({ [SEARCH_ATTR.CHANNEL]: [input.channel], [SEARCH_ATTR.STATUS]: [state.status] });
   upsertApplicant();
 
@@ -160,6 +166,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   // --- Step 4: Underwriting decision (from the risk model) ---
   setStatus(ApplicationStatus.DECISION);
   state.decision = risk.recommendedDecision;
+  upsertDecision();
   record('decision', 'COMPLETED', `decision=${state.decision}`);
 
   if (state.decision === 'DECLINED') {
@@ -209,6 +216,7 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   } else {
     state.decision = 'CONDITIONAL';
     state.outcome = 'Conditional — lender requires further review';
+    upsertDecision();
   }
   record('outcome', 'COMPLETED', state.outcome);
   log.info('application completed', { id: state.id, outcome: state.outcome });

@@ -201,6 +201,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: 
 .pip { flex: 1; text-align: center; font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.4rem 0.2rem; border-radius: 4px; background: var(--panel-2); color: var(--faint); border-top: 2px solid var(--line); }
 .pip.done { background: rgba(25, 227, 177, 0.08); color: var(--teal); border-top-color: var(--teal); }
 .pip.now { background: rgba(26, 143, 227, 0.16); color: #8fccf7; border-top-color: var(--bmo); box-shadow: 0 0 14px rgba(26, 143, 227, 0.3); }
+/* A stage the workflow branched past (e.g. rate/syndication when DECLINED) —
+   hollow + dashed + struck-through so it reads as "did not run", not "done". */
+.pip.skipped {
+  background: transparent;
+  border: 1px dashed var(--faint);
+  border-top: 2px dashed var(--faint);
+  color: var(--faint);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
 
 /* Compact progress strip used in the running-list rows */
 .progress-compact { margin: 0; gap: 2px; }

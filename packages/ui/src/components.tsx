@@ -169,15 +169,63 @@ export function SpecialistConsole({
 
 // ---------------------------------------------------------------------------
 
-function ProgressStrip({ status, compact }: { status: string; compact?: boolean }) {
+// Which timeline step(s) prove a pipeline stage actually executed. A stage the
+// workflow branched past (e.g. rate/syndication when DECLINED) has no such event.
+const STAGE_STEPS: Record<string, string[]> = {
+  INTAKE: ['intake', 'partner-intake'],
+  INCOME_VERIFICATION: ['income'],
+  CROSS_REFERENCE: ['customer', 'credit', 'risk'],
+  DECISION: ['decision'],
+  RATE_ASSIGNED: ['rate'],
+  SYNDICATION: ['syndication'],
+  COMPLETED: ['outcome'],
+};
+
+type PipState = 'done' | 'now' | 'skipped' | 'pending';
+
+// Classify each pipeline stage. With a timeline (detail view) we know exactly
+// which stages ran, so a branched-past stage shows as 'skipped' rather than green.
+// Without one (list rows), fall back to the linear fill, using `decision` to infer
+// the DECLINED branch bypass when the app has completed.
+function pipStates(status: string, timeline?: StepEvent[], decision?: string | null): PipState[] {
   const current = PIPELINE.indexOf(status);
+  const ranStage = (stage: string): boolean | undefined =>
+    timeline ? (STAGE_STEPS[stage] ?? []).some((step) => timeline.some((e) => e.step === step)) : undefined;
+  return PIPELINE.map((stage, i) => {
+    if (stage === status) return status === 'COMPLETED' ? 'done' : 'now';
+    const reached = current === -1 ? ranStage(stage) === true : i < current;
+    if (!reached) return 'pending';
+    const ran = ranStage(stage);
+    if (ran === false) return 'skipped';
+    if (ran === undefined) {
+      if (status === 'COMPLETED' && decision === 'DECLINED' && (stage === 'RATE_ASSIGNED' || stage === 'SYNDICATION')) {
+        return 'skipped';
+      }
+      return 'done';
+    }
+    return 'done';
+  });
+}
+
+function ProgressStrip({
+  status,
+  compact,
+  timeline,
+  decision,
+}: {
+  status: string;
+  compact?: boolean;
+  timeline?: StepEvent[];
+  decision?: string | null;
+}) {
+  const states = pipStates(status, timeline, decision);
   return (
     <div className={`progress ${compact ? 'progress-compact' : ''}`}>
       {PIPELINE.map((s, i) => (
         <div
           key={s}
-          className={`pip ${current >= i && current !== -1 ? 'done' : ''} ${s === status ? 'now' : ''}`}
-          title={STATUS_LABEL[s]}
+          className={`pip ${states[i]}`}
+          title={states[i] === 'skipped' ? `${STATUS_LABEL[s]} — skipped (branch not taken)` : STATUS_LABEL[s]}
         >
           {compact ? '' : STATUS_LABEL[s]}
         </div>
@@ -214,7 +262,7 @@ export function RunningList({
           <button key={it.workflowId} className={`run-row ${stuck ? 'stuck' : ''}`} onClick={() => onOpen(it.id)}>
             <span className="mono run-id">{it.id}</span>
             <span className="run-applicant">{it.applicant ?? (it.channel === 'PARTNER_QUEUE' ? '(partner)' : '—')}</span>
-            <ProgressStrip status={it.status ?? ''} compact />
+            <ProgressStrip status={it.status ?? ''} compact decision={it.decision} />
             <span className={`run-status ${stuck ? 'warn' : ''}`}>
               {stuck ? '⚠ ' : ''}
               {label}
@@ -506,7 +554,7 @@ export function ApplicationDetail({ state, code, onChanged }: { state: Applicati
         </div>
       )}
 
-      <ProgressStrip status={state.status} />
+      <ProgressStrip status={state.status} timeline={state.timeline} decision={state.decision} />
 
       <div className="facts">
         <EditableFact id={state.id} label="Applicant" field="applicant" value={a.applicant} onChanged={onChanged} />

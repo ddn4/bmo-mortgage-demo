@@ -49,6 +49,12 @@ export const SEARCH_ATTR = {
   STATUS: 'applicationStatus',
   CHANNEL: 'channel',
   APPLICANT: 'applicant',
+  DECISION: 'applicationDecision',
 } as const;
 
-export const SEARCH_ATTRIBUTES: readonly string[] = [SEARCH_ATTR.STATUS, SEARCH_ATTR.CHANNEL, SEARCH_ATTR.APPLICANT];
+export const SEARCH_ATTRIBUTES: readonly string[] = [
+  SEARCH_ATTR.STATUS,
+  SEARCH_ATTR.CHANNEL,
+  SEARCH_ATTR.APPLICANT,
+  SEARCH_ATTR.DECISION,
+];
