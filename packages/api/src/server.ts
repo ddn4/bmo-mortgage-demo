@@ -169,6 +169,25 @@ async function main(): Promise<void> {
     return { inFlight: running.count, completed: completed.count };
   });
 
+  // Per-applicationStatus counts for the dynamic status header. Accurate at any
+  // scale (count() is server-side; the list is capped at 100). Excludes
+  // terminated executions to match the list view.
+  const STATUS_VALUES = [
+    'INTAKE', 'INCOME_VERIFICATION', 'CROSS_REFERENCE', 'DECISION',
+    'RATE_ASSIGNED', 'SYNDICATION', 'COMPLETED', 'NEEDS_REVIEW',
+  ] as const;
+  app.get('/api/status-counts', async () => {
+    const client = await getClient();
+    const base = `WorkflowType = '${WORKFLOW_TYPE}' AND ExecutionStatus != 'Terminated'`;
+    const pairs = await Promise.all(
+      STATUS_VALUES.map(async (s) => {
+        const { count } = await client.workflow.count(`${base} AND ${SEARCH_ATTR.STATUS} = '${s}'`);
+        return [s, count] as const;
+      }),
+    );
+    return Object.fromEntries(pairs) as Record<(typeof STATUS_VALUES)[number], number>;
+  });
+
   // Serverless fleet: how many worker Lambdas are polling right now (≈ distinct
   // recent pollers on the task queue → 0 at idle, N under burst), plus the static
   // architecture we orchestrate. Poller data comes from Temporal — no AWS SDK.
@@ -226,6 +245,7 @@ async function main(): Promise<void> {
     // its last value, so a status filter would otherwise surface cleaned-up apps.
     let query = `WorkflowType = '${WORKFLOW_TYPE}' AND ExecutionStatus != 'Terminated'`;
     if (q.status) query += ` AND ${SEARCH_ATTR.STATUS} = '${q.status}'`;
+    else query += ` AND ${SEARCH_ATTR.STATUS} != 'COMPLETED'`;
     if (q.channel) query += ` AND ${SEARCH_ATTR.CHANNEL} = '${q.channel}'`;
     const client = await getClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
