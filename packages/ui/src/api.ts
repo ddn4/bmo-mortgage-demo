@@ -1,4 +1,4 @@
-import type { AppListItem, ApplicationState, Fleet, TriageItem } from './types';
+import type { AppListItem, ApplicationState, Fleet, StatusCounts, TriageItem } from './types';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -40,6 +40,7 @@ export const api = {
   burst: (count: number) => post<{ started: number }>('/api/burst', { count }),
   callbackAll: () => post<{ sent: number }>('/api/callback-all', {}),
   metrics: (): Promise<{ inFlight: number; completed: number }> => getJson('/api/metrics'),
+  statusCounts: (): Promise<StatusCounts> => getJson<StatusCounts>('/api/status-counts'),
   fleet: (): Promise<Fleet> => getJson('/api/fleet'),
   source: (): Promise<{ path: string; code: string }> => getJson('/api/source'),
 };

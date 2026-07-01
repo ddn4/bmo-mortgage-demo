@@ -53,6 +53,17 @@ export interface Fleet {
   workerLambda: number;
 }
 
+export interface StatusCounts {
+  INTAKE: number;
+  INCOME_VERIFICATION: number;
+  CROSS_REFERENCE: number;
+  DECISION: number;
+  RATE_ASSIGNED: number;
+  SYNDICATION: number;
+  COMPLETED: number;
+  NEEDS_REVIEW: number;
+}
+
 export interface AppListItem {
   id: string;
   workflowId: string;
