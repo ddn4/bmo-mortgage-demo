@@ -26,6 +26,8 @@ export function App() {
   const [faultOn, setFaultOn] = useState(false);
   const [fleet, setFleet] = useState<Fleet>({ workersRunning: 0, businessLambdas: 7, workerLambda: 1 });
   const [source, setSource] = useState('');
+  // Temporal-UI deep-link base (local dev UI vs Temporal Cloud UI), from /api/config.
+  const [temporalUiBase, setTemporalUiBase] = useState('http://localhost:8233/namespaces/default/workflows');
 
   // The "Needs attention" filter has no single status → fetch the default list
   // (which already includes retrying-SYNDICATION and NEEDS_REVIEW rows) and filter
@@ -107,9 +109,10 @@ export function App() {
     return () => clearInterval(t);
   }, [refreshDetail]);
 
-  // Fetch the workflow source once for the code view.
+  // Fetch the workflow source + runtime config once.
   useEffect(() => {
     api.source().then((s) => setSource(s.code)).catch(() => undefined);
+    api.config().then((c) => setTemporalUiBase(c.temporalUiBase)).catch(() => undefined);
   }, []);
 
   const stuckIds = new Set(triage.map((t) => t.id));
@@ -155,13 +158,13 @@ export function App() {
             <ErrorBoundary label="Applications">
               <div className="card">
                 <StatusHeader counts={counts} needsAttention={needsAttention} active={statusFilter} onSelect={setStatusFilter} />
-                <RunningList items={visibleItems} stuckIds={stuckIds} onOpen={openApp} />
+                <RunningList items={visibleItems} stuckIds={stuckIds} onOpen={openApp} temporalUiBase={temporalUiBase} />
               </div>
             </ErrorBoundary>
           ) : (
             <ErrorBoundary label="Application detail">
               {detail ? (
-                <ApplicationDetail state={detail} code={source} onChanged={refreshDetail} />
+                <ApplicationDetail state={detail} code={source} temporalUiBase={temporalUiBase} onChanged={refreshDetail} />
               ) : (
                 <div className="card placeholder">
                   <p>Loading live application state… (a serverless worker is spinning up to answer the query)</p>

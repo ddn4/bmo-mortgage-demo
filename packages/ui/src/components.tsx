@@ -77,10 +77,9 @@ function fmtTime(iso?: string): string {
   return iso && iso.length >= 23 ? iso.slice(11, 23) : (iso ?? '—');
 }
 
-// Deep link to a workflow in the Temporal UI. NOTE: points at the local dev
-// server (:8233); for the deployed demo this should be the Temporal Cloud UI URL.
-const temporalWorkflowUrl = (id: string): string =>
-  `http://localhost:8233/namespaces/default/workflows/mortgage-app-${id}`;
+// Deep link to a workflow in the Temporal UI. `base` comes from the API's
+// /api/config (local dev UI vs Temporal Cloud UI), resolved at runtime.
+const temporalWorkflowUrl = (base: string, id: string): string => `${base}/mortgage-app-${id}`;
 
 // ---------------------------------------------------------------------------
 
@@ -250,10 +249,12 @@ export function RunningList({
   items,
   stuckIds,
   onOpen,
+  temporalUiBase,
 }: {
   items: AppListItem[];
   stuckIds: Set<string>;
   onOpen: (id: string) => void;
+  temporalUiBase: string;
 }) {
   if (items.length === 0) {
     return <p className="muted list-empty">No applications in this view — create one on the left, or burst a batch.</p>;
@@ -283,7 +284,7 @@ export function RunningList({
             </span>
             <a
               className="tlink run-link"
-              href={temporalWorkflowUrl(it.id)}
+              href={temporalWorkflowUrl(temporalUiBase, it.id)}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -537,10 +538,20 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
-export function ApplicationDetail({ state, code, onChanged }: { state: ApplicationState; code: string; onChanged: () => void }) {
+export function ApplicationDetail({
+  state,
+  code,
+  temporalUiBase,
+  onChanged,
+}: {
+  state: ApplicationState;
+  code: string;
+  temporalUiBase: string;
+  onChanged: () => void;
+}) {
   const [view, setView] = useState<'after' | 'before' | 'code'>('after');
   const a = state.application;
-  const temporalUrl = temporalWorkflowUrl(state.id);
+  const temporalUrl = temporalWorkflowUrl(temporalUiBase, state.id);
 
   return (
     <div className="card detail">

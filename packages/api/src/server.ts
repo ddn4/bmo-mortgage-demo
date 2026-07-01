@@ -48,6 +48,20 @@ async function pendingActivitiesFor(handle: {
 const idFromWorkflowId = (workflowId: string): string =>
   workflowId.startsWith(APP_ID_PREFIX) ? workflowId.slice(APP_ID_PREFIX.length) : workflowId;
 
+// Base URL for Temporal-UI workflow deep links, so the UI's "Open Workflow" links
+// resolve to the right place in every environment. Explicit TEMPORAL_UI_BASE wins;
+// otherwise derive Temporal Cloud vs the local dev UI from the address/namespace.
+// The UI appends `/<workflowId>` to this.
+function temporalUiBase(): string {
+  const override = process.env.TEMPORAL_UI_BASE;
+  if (override) return override.replace(/\/+$/, '');
+  const ns = process.env.TEMPORAL_NAMESPACE ?? 'default';
+  const addr = process.env.TEMPORAL_ADDRESS ?? '';
+  const isCloud = /temporal\.io/i.test(addr) || ns.includes('.');
+  const host = isCloud ? 'https://cloud.temporal.io' : 'http://localhost:8233';
+  return `${host}/namespaces/${ns}/workflows`;
+}
+
 // The actual workflow source, served verbatim for the code-reveal beat (SPEC §5 view 5).
 const WORKFLOW_SOURCE_PATH = path.join(
   path.dirname(require.resolve('@bmo/workflows/package.json')),
@@ -187,6 +201,9 @@ async function main(): Promise<void> {
     );
     return Object.fromEntries(pairs) as Record<(typeof STATUS_VALUES)[number], number>;
   });
+
+  // Front-end config resolved at runtime (so one image works local + on Cloud).
+  app.get('/api/config', async () => ({ temporalUiBase: temporalUiBase() }));
 
   // Serverless fleet: how many worker Lambdas are polling right now (≈ distinct
   // recent pollers on the task queue → 0 at idle, N under burst), plus the static

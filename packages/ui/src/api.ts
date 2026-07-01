@@ -43,4 +43,5 @@ export const api = {
   statusCounts: (): Promise<StatusCounts> => getJson<StatusCounts>('/api/status-counts'),
   fleet: (): Promise<Fleet> => getJson('/api/fleet'),
   source: (): Promise<{ path: string; code: string }> => getJson('/api/source'),
+  config: (): Promise<{ temporalUiBase: string }> => getJson('/api/config'),
 };
