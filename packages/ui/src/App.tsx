@@ -138,8 +138,9 @@ export function App() {
         <section className="col-left">
           <ErrorBoundary label="Specialist console">
             <SpecialistConsole
-              onCreated={(id) => {
-                openApp(id);
+              onCreated={() => {
+                // Stay on the list view after creating — the new app appears in the
+                // list; the user opens its detail tab by clicking the row.
                 refreshList();
               }}
               onBurst={burst}

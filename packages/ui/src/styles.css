@@ -244,6 +244,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: 
 .run-applicant { font-family: var(--display); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .run-status { font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .run-status.warn { color: var(--amber); }
+.run-link { justify-self: end; white-space: nowrap; }
 .list-empty { padding: 1.4rem 0.4rem; }
 
 /* ---- Instrument readouts ---- */

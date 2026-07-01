@@ -77,6 +77,11 @@ function fmtTime(iso?: string): string {
   return iso && iso.length >= 23 ? iso.slice(11, 23) : (iso ?? '—');
 }
 
+// Deep link to a workflow in the Temporal UI. NOTE: points at the local dev
+// server (:8233); for the deployed demo this should be the Temporal Cloud UI URL.
+const temporalWorkflowUrl = (id: string): string =>
+  `http://localhost:8233/namespaces/default/workflows/mortgage-app-${id}`;
+
 // ---------------------------------------------------------------------------
 
 export function SpecialistConsole({
@@ -259,7 +264,16 @@ export function RunningList({
         const stuck = stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW';
         const label = it.status ? (STATUS_LABEL[it.status] ?? it.status) : (it.executionStatus ?? '—');
         return (
-          <button key={it.workflowId} className={`run-row ${stuck ? 'stuck' : ''}`} onClick={() => onOpen(it.id)}>
+          <div
+            key={it.workflowId}
+            className={`run-row ${stuck ? 'stuck' : ''}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen(it.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onOpen(it.id);
+            }}
+          >
             <span className="mono run-id">{it.id}</span>
             <span className="run-applicant">{it.applicant ?? (it.channel === 'PARTNER_QUEUE' ? '(partner)' : '—')}</span>
             <ProgressStrip status={it.status ?? ''} compact decision={it.decision} />
@@ -267,8 +281,17 @@ export function RunningList({
               {stuck ? '⚠ ' : ''}
               {label}
             </span>
-            <span className={`chip chip-${it.channel ?? 'NA'}`}>{it.channel === 'PARTNER_QUEUE' ? 'partner' : 'specialist'}</span>
-          </button>
+            <a
+              className="tlink run-link"
+              href={temporalWorkflowUrl(it.id)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open this application's workflow in the Temporal UI"
+            >
+              Open Workflow ↗
+            </a>
+          </div>
         );
       })}
     </div>
@@ -517,7 +540,7 @@ function CodeBlock({ code }: { code: string }) {
 export function ApplicationDetail({ state, code, onChanged }: { state: ApplicationState; code: string; onChanged: () => void }) {
   const [view, setView] = useState<'after' | 'before' | 'code'>('after');
   const a = state.application;
-  const temporalUrl = `http://localhost:8233/namespaces/default/workflows/mortgage-app-${state.id}`;
+  const temporalUrl = temporalWorkflowUrl(state.id);
 
   return (
     <div className="card detail">
