@@ -1,4 +1,5 @@
 import { Component, useState, type ReactNode } from 'react';
+import { Highlight, themes } from 'prism-react-renderer';
 import { api } from './api';
 import type { AppListItem, ApplicationState, Fleet, StepEvent, TriageItem } from './types';
 
@@ -323,8 +324,29 @@ function EditableFact({
   );
 }
 
-export function ApplicationDetail({ state, onChanged }: { state: ApplicationState; onChanged: () => void }) {
-  const [view, setView] = useState<'after' | 'before'>('after');
+/** The actual workflow source, syntax-highlighted (skill-gap talk track). */
+function CodeBlock({ code }: { code: string }) {
+  if (!code) return <div className="code muted mono">loading…</div>;
+  return (
+    <Highlight theme={themes.nightOwl} code={code} language="tsx">
+      {({ style, tokens, getLineProps, getTokenProps }) => (
+        <pre className="code" style={style}>
+          {tokens.map((line, i) => (
+            <div key={i} {...getLineProps({ line })}>
+              <span className="code-ln">{i + 1}</span>
+              {line.map((token, k) => (
+                <span key={k} {...getTokenProps({ token })} />
+              ))}
+            </div>
+          ))}
+        </pre>
+      )}
+    </Highlight>
+  );
+}
+
+export function ApplicationDetail({ state, code, onChanged }: { state: ApplicationState; code: string; onChanged: () => void }) {
+  const [view, setView] = useState<'after' | 'before' | 'code'>('after');
   const a = state.application;
   const temporalUrl = `http://localhost:8233/namespaces/default/workflows/mortgage-app-${state.id}`;
 
@@ -399,9 +421,14 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
         <button className={view === 'after' ? 'active' : ''} onClick={() => setView('after')}>
           After — one Temporal timeline
         </button>
+        <button className={view === 'code' ? 'active' : ''} onClick={() => setView('code')}>
+          Workflow code
+        </button>
       </div>
 
-      {view === 'after' ? <UnifiedTimeline timeline={state.timeline} /> : <SiloedLogs timeline={state.timeline} />}
+      {view === 'after' && <UnifiedTimeline timeline={state.timeline} />}
+      {view === 'before' && <SiloedLogs timeline={state.timeline} />}
+      {view === 'code' && <CodeBlock code={code} />}
 
       {state.status === 'SYNDICATION' && (
         <div className="row">

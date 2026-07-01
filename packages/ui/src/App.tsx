@@ -119,7 +119,7 @@ export function App() {
         <section className="col-right">
           <ErrorBoundary label="Application detail">
             {detail ? (
-              <ApplicationDetail state={detail} onChanged={refreshDetail} />
+              <ApplicationDetail state={detail} code={source} onChanged={refreshDetail} />
             ) : (
               <div className="card placeholder">
                 <p>

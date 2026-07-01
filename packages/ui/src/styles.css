@@ -282,6 +282,9 @@ select.filter { width: auto; margin: 0; padding: 0.3rem 0.5rem; font-family: var
 .code-reveal .code-head h2 { margin: 0; text-transform: none; font-family: var(--display); font-size: 1rem; color: var(--ink); letter-spacing: 0; }
 .code { margin: 1rem 0 0; padding: 1rem 1.1rem; background: #060b14; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: auto; max-height: 60vh; }
 .code code { font-family: var(--mono); font-size: 0.78rem; line-height: 1.55; color: #b8c7de; white-space: pre; }
+/* Syntax-highlighted workflow source (prism-react-renderer inside the detail tab) */
+pre.code { font-family: var(--mono); font-size: 0.76rem; line-height: 1.55; white-space: pre; }
+.code-ln { display: inline-block; width: 2.5em; margin-right: 1.1em; text-align: right; color: var(--faint); opacity: 0.55; user-select: none; }
 
 /* ---- Quality floor ---- */
 :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
