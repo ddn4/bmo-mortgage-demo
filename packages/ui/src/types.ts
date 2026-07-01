@@ -47,6 +47,12 @@ export interface TriageItem {
   application: ApplicationData;
 }
 
+export interface Fleet {
+  workersRunning: number;
+  businessLambdas: number;
+  workerLambda: number;
+}
+
 export interface AppListItem {
   id: string;
   workflowId: string;

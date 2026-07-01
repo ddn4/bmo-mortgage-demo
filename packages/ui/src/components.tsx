@@ -1,6 +1,35 @@
-import { useState } from 'react';
+import { Component, useState, type ReactNode } from 'react';
 import { api } from './api';
-import type { AppListItem, ApplicationState, StepEvent, TriageItem } from './types';
+import type { AppListItem, ApplicationState, Fleet, StepEvent, TriageItem } from './types';
+
+/**
+ * Panel-level error boundary. A transient bad shape from a poll (e.g. a detail
+ * query that fails under scale-to-zero) must never blank the whole page — it
+ * shows a small inline fallback and recovers on the next successful render.
+ */
+export class ErrorBoundary extends Component<
+  { label?: string; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+  // Recover automatically: once new props/children arrive, try rendering again.
+  componentDidUpdate(prev: { children: ReactNode }): void {
+    if (this.state.failed && prev.children !== this.props.children) this.setState({ failed: false });
+  }
+  render(): ReactNode {
+    if (this.state.failed) {
+      return (
+        <div className="card boundary-fallback mono muted">
+          {this.props.label ?? 'This section'} hit an error — recovering…
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /** Linear pipeline used for the progress strip. */
 export const PIPELINE = [
@@ -42,8 +71,9 @@ export function StatusBadge({ status }: { status?: string }) {
   return <span className={cls}>{status ? (STATUS_LABEL[status] ?? status) : '—'}</span>;
 }
 
-function fmtTime(iso: string): string {
-  return iso.slice(11, 23);
+function fmtTime(iso?: string): string {
+  // Tolerate a missing/short timestamp — a malformed step must not throw mid-render.
+  return iso && iso.length >= 23 ? iso.slice(11, 23) : (iso ?? '—');
 }
 
 // ---------------------------------------------------------------------------
@@ -389,46 +419,9 @@ export function TriagePanel({
 
 // ---------------------------------------------------------------------------
 
-/** Illustrative cost model: always-warm worker fleet vs. serverless scale-to-zero. */
-function CostModel() {
-  // Assumptions (stated, editable in code): an orchestration worker fleet that
-  // today runs as always-warm/provisioned Lambdas during business hours.
-  const workers = 4;
-  const memGb = 1769 / 1024; // 1 full vCPU
-  const warmHours = 11; // 8–12 hrs/day warm (SPEC framing)
-  const businessDays = 22;
-  const gbsPrice = 0.0000166667; // Lambda GB-second (on-demand, USD)
-
-  const alwaysWarm = workers * memGb * warmHours * 3600 * businessDays * gbsPrice;
-  // Serverless: only the seconds the worker is actually executing tasks.
-  const activeSecPerDay = 900; // ~ aggregate worker-active seconds across the day
-  const serverless = memGb * activeSecPerDay * businessDays * gbsPrice;
-  const saved = Math.round((1 - serverless / alwaysWarm) * 100);
-  const usd = (n: number) => `$${n.toFixed(2)}`;
-
-  return (
-    <div className="cost">
-      <div className="cost-row">
-        <div className="cost-cell warm">
-          <b>Always-warm fleet</b>
-          <span>{usd(alwaysWarm)}<i>/mo</i></span>
-          <small>{workers} workers · warm {warmHours}h/day</small>
-        </div>
-        <div className="cost-cell serverless">
-          <b>Serverless (scale-to-zero)</b>
-          <span>{usd(serverless)}<i>/mo</i></span>
-          <small>billed on active seconds only</small>
-        </div>
-      </div>
-      <div className="cost-bar"><div className="cost-bar-fill" style={{ width: `${100 - saved}%` }} /></div>
-      <div className="cost-saved">{saved}% lower · no cold-start tax · scales from zero</div>
-      <small className="muted">Illustrative model — real numbers land in the cloud phase (M5).</small>
-    </div>
-  );
-}
-
 export function OperationsPanel({
   metrics,
+  fleet,
   needsReview,
   onBurst,
   onCallbackAll,
@@ -437,6 +430,9 @@ export function OperationsPanel({
   // 100-item list cap. needsReview is the Triage set — apps awaiting manual
   // intervention (a retrying/stuck activity), not the rare NEEDS_REVIEW status.
   metrics: { inFlight: number; completed: number };
+  // Live serverless fleet: workers polling right now (0 at idle → N under burst),
+  // plus the static architecture being orchestrated.
+  fleet: Fleet;
   needsReview: number;
   onBurst: (n: number) => void;
   onCallbackAll: () => Promise<void> | void;
@@ -456,11 +452,20 @@ export function OperationsPanel({
 
   return (
     <div className="card">
-      <h2>Operations &amp; cost</h2>
+      <h2>Operations</h2>
       <div className="readouts">
         <div><b>In-flight</b><span>{metrics.inFlight}</span></div>
         <div><b>Completed</b><span>{metrics.completed}</span></div>
         <div><b>Needs review</b><span className={needsReview ? 'warn-num' : ''}>{needsReview}</span></div>
+      </div>
+      <div className="fleet">
+        <div className="fleet-live">
+          <b>Serverless workers running</b>
+          <span className={fleet.workersRunning ? 'fleet-num live' : 'fleet-num'}>{fleet.workersRunning}</span>
+        </div>
+        <small className="muted">
+          orchestrating {fleet.businessLambdas} business Lambdas via {fleet.workerLambda} serverless worker · scales to zero
+        </small>
       </div>
       <div className="row burst-row">
         <span className="mono muted">burst</span>
@@ -472,7 +477,6 @@ export function OperationsPanel({
           {draining ? 'Sending…' : 'Complete all at syndication'}
         </button>
       </div>
-      <CostModel />
     </div>
   );
 }

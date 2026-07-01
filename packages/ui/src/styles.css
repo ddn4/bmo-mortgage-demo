@@ -236,7 +236,7 @@ button.danger:hover { box-shadow: 0 0 18px rgba(255, 92, 108, 0.4); }
 .list-head h2 { margin: 0; }
 select.filter { width: auto; margin: 0; padding: 0.3rem 0.5rem; font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 
-/* ---- Operations & cost ---- */
+/* ---- Operations ---- */
 .readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.9rem; }
 .readouts div { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 0.5rem 0.6rem; text-align: center; }
 .readouts b { display: block; font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem; }
@@ -245,20 +245,16 @@ select.filter { width: auto; margin: 0; padding: 0.3rem 0.5rem; font-family: var
 .burst-row { margin: 0 0 1rem; }
 .burst-row input { width: 5rem; margin: 0; }
 
-.cost { border-top: 1px solid var(--line); padding-top: 0.8rem; }
-.cost-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-.cost-cell { border-radius: var(--r-sm); padding: 0.55rem 0.65rem; border: 1px solid var(--line); }
-.cost-cell.warm { background: rgba(255, 92, 108, 0.07); border-color: rgba(255, 92, 108, 0.25); }
-.cost-cell.serverless { background: rgba(25, 227, 177, 0.07); border-color: rgba(25, 227, 177, 0.25); }
-.cost-cell b { display: block; font-family: var(--mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.25rem; }
-.cost-cell span { font-family: var(--display); font-size: 1.4rem; font-weight: 700; }
-.cost-cell span i { font-size: 0.7rem; font-style: normal; color: var(--muted); font-weight: 400; }
-.cost-cell.warm span { color: var(--red); }
-.cost-cell.serverless span { color: var(--teal); }
-.cost-cell small { display: block; font-size: 0.66rem; color: var(--muted); margin-top: 0.15rem; }
-.cost-bar { height: 8px; background: rgba(255, 92, 108, 0.25); border-radius: 999px; margin: 0.7rem 0 0.4rem; overflow: hidden; }
-.cost-bar-fill { height: 100%; background: var(--teal); border-radius: 999px; }
-.cost-saved { font-family: var(--display); font-weight: 600; color: var(--teal); font-size: 0.92rem; margin-bottom: 0.3rem; }
+/* ---- Serverless fleet (live worker count) ---- */
+.fleet { border-top: 1px solid var(--line); padding-top: 0.8rem; margin-bottom: 0.9rem; }
+.fleet-live { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; }
+.fleet-live b { font-family: var(--mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.fleet-num { font-family: var(--display); font-size: 2rem; font-weight: 700; color: var(--muted); transition: color 0.3s ease; }
+.fleet-num.live { color: var(--teal); text-shadow: 0 0 14px rgba(25, 227, 177, 0.45); }
+.fleet small { display: block; font-size: 0.66rem; color: var(--muted); margin-top: 0.25rem; }
+
+/* ---- Panel error-boundary fallback ---- */
+.boundary-fallback { font-size: 0.8rem; opacity: 0.85; }
 
 /* ---- Code reveal ---- */
 .code-reveal .code-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; cursor: pointer; }

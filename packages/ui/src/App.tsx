@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import { AppList, ApplicationDetail, CodeRevealPanel, OperationsPanel, SpecialistConsole, TriagePanel } from './components';
-import type { AppListItem, ApplicationState, TriageItem } from './types';
+import { AppList, ApplicationDetail, CodeRevealPanel, ErrorBoundary, OperationsPanel, SpecialistConsole, TriagePanel } from './components';
+import type { AppListItem, ApplicationState, Fleet, TriageItem } from './types';
 
 export function App() {
   const [items, setItems] = useState<AppListItem[]>([]);
@@ -12,16 +12,20 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState('');
   const [source, setSource] = useState('');
   const [metrics, setMetrics] = useState({ inFlight: 0, completed: 0 });
+  const [fleet, setFleet] = useState<Fleet>({ workersRunning: 0, businessLambdas: 7, workerLambda: 1 });
 
+  // Fetch everything in parallel and set each piece as it resolves. The list
+  // visibility query can be slow (cross-region), so it must NOT block the live
+  // readouts (metrics/fleet). Each fetch rejects independently on error (kept via
+  // allSettled) so one failing endpoint never wipes the others' state.
   const refreshList = useCallback(async () => {
-    try {
-      setItems(await api.list(statusFilter));
-      setTriage(await api.triage());
-      setFaultOn((await api.getFault()).syndicationFault);
-      setMetrics(await api.metrics());
-    } catch {
-      /* API not up yet — keep polling */
-    }
+    await Promise.allSettled([
+      api.list(statusFilter).then(setItems),
+      api.triage().then(setTriage),
+      api.getFault().then((f) => setFaultOn(f.syndicationFault)),
+      api.metrics().then(setMetrics),
+      api.fleet().then(setFleet),
+    ]);
   }, [statusFilter]);
 
   const burst = useCallback(async (n: number) => {
@@ -87,32 +91,48 @@ export function App() {
 
       <main className="layout">
         <section className="col-left">
-          <SpecialistConsole
-            onCreated={(id) => {
-              setSelectedId(id);
-              refreshList();
-            }}
-          />
-          <OperationsPanel metrics={metrics} needsReview={triage.length} onBurst={burst} onCallbackAll={callbackAll} />
-          <AppList
-            items={items}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            statusFilter={statusFilter}
-            onStatusFilter={setStatusFilter}
-          />
-          <TriagePanel faultOn={faultOn} onToggleFault={toggleFault} items={triage} onSelect={setSelectedId} />
+          <ErrorBoundary label="Specialist console">
+            <SpecialistConsole
+              onCreated={(id) => {
+                setSelectedId(id);
+                refreshList();
+              }}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="Operations">
+            <OperationsPanel metrics={metrics} fleet={fleet} needsReview={triage.length} onBurst={burst} onCallbackAll={callbackAll} />
+          </ErrorBoundary>
+          <ErrorBoundary label="Applications">
+            <AppList
+              items={items}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              statusFilter={statusFilter}
+              onStatusFilter={setStatusFilter}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="Triage">
+            <TriagePanel faultOn={faultOn} onToggleFault={toggleFault} items={triage} onSelect={setSelectedId} />
+          </ErrorBoundary>
         </section>
 
         <section className="col-right">
-          {detail ? (
-            <ApplicationDetail state={detail} onChanged={refreshDetail} />
-          ) : (
-            <div className="card placeholder">
-              <p>Select or create an application to see its one-trace timeline.</p>
-            </div>
-          )}
-          <CodeRevealPanel code={source} />
+          <ErrorBoundary label="Application detail">
+            {detail ? (
+              <ApplicationDetail state={detail} onChanged={refreshDetail} />
+            ) : (
+              <div className="card placeholder">
+                <p>
+                  {selectedId
+                    ? 'Loading live application state… (a serverless worker is spinning up to answer the query)'
+                    : 'Select or create an application to see its one-trace timeline.'}
+                </p>
+              </div>
+            )}
+          </ErrorBoundary>
+          <ErrorBoundary label="Workflow source">
+            <CodeRevealPanel code={source} />
+          </ErrorBoundary>
         </section>
       </main>
     </div>

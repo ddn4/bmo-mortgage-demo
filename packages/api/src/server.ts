@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
-import { SEARCH_ATTR, TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
+import { LAMBDA, SEARCH_ATTR, TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
 // Type-only: arg/return typing without loading the workflow implementation here.
 import type { mortgageApplicationWorkflow } from '@bmo/workflows';
 // Runtime Query/Signal/Update definitions (safe to import outside a workflow).
@@ -167,6 +167,27 @@ async function main(): Promise<void> {
       client.workflow.count(`${base} AND ExecutionStatus = 'Completed'`),
     ]);
     return { inFlight: running.count, completed: completed.count };
+  });
+
+  // Serverless fleet: how many worker Lambdas are polling right now (≈ distinct
+  // recent pollers on the task queue → 0 at idle, N under burst), plus the static
+  // architecture we orchestrate. Poller data comes from Temporal — no AWS SDK.
+  const BUSINESS_LAMBDAS = Object.keys(LAMBDA).length; // the 7 mock BMO functions
+  app.get('/api/fleet', async () => {
+    try {
+      const client = await getClient();
+      const namespace = process.env.TEMPORAL_NAMESPACE ?? 'default';
+      const resp = await client.connection.workflowService.describeTaskQueue({
+        namespace,
+        taskQueue: { name: TASK_QUEUE },
+        taskQueueType: 1, // TASK_QUEUE_TYPE_WORKFLOW
+      });
+      const identities = new Set((resp.pollers ?? []).map((p) => p.identity).filter(Boolean));
+      return { workersRunning: identities.size, businessLambdas: BUSINESS_LAMBDAS, workerLambda: 1 };
+    } catch {
+      // Never break the panel — report zero live workers on any transient error.
+      return { workersRunning: 0, businessLambdas: BUSINESS_LAMBDAS, workerLambda: 1 };
+    }
   });
 
   // Bulk lender callback: drain every application parked at syndication so a
