@@ -169,6 +169,25 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: 
 .facts div { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 0.55rem 0.7rem; }
 .facts b { display: block; font-family: var(--mono); font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.2rem; }
 .facts span { font-family: var(--display); font-size: 1rem; font-weight: 600; color: var(--ink); }
+/* Inline-editable facts (replaces the old Edit panel) */
+.facts .fact { display: flex; flex-direction: column; gap: 3px; }
+.facts .fact-val { cursor: pointer; }
+.facts .fact-pencil { opacity: 0; font-size: 0.75em; color: var(--faint); font-weight: 400; }
+.facts .fact-val:hover .fact-pencil { opacity: 0.7; }
+.facts .fact-edit { display: inline-flex; gap: 5px; align-items: center; }
+.facts .fact-edit input {
+  width: 9ch; font-family: var(--mono); font-size: 0.85rem; font-weight: 500;
+  background: var(--void); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 7px;
+}
+.facts button.mini {
+  padding: 1px 8px; font-size: 0.8rem; line-height: 1.5; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--raise); color: var(--ink); cursor: pointer;
+}
+.facts button.mini:hover { border-color: var(--teal); }
+.facts .fact-ok { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; color: var(--teal); }
+.facts .fact-rejected { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; color: var(--amber); }
+.facts .fact-locked b { color: var(--amber); opacity: 0.85; }
 
 /* ---- Before/after segmented control ---- */
 .view-toggle { display: flex; align-items: center; gap: 0.4rem; margin: 1.1rem 0 0.7rem; font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }

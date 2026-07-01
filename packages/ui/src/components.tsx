@@ -247,37 +247,77 @@ function SiloedLogs({ timeline }: { timeline: StepEvent[] }) {
   );
 }
 
-function lockMark(state: ApplicationState, field: string): string {
-  return state.lockedFields.includes(field) ? ' 🔒' : '';
-}
-
-function EditPanel({ id, state, onChanged }: { id: string; state: ApplicationState; onChanged: () => void }) {
-  const [field, setField] = useState('rate');
-  const [value, setValue] = useState('');
+/**
+ * A single fact that can be edited in place. Clicking the value reveals an input;
+ * Enter/✓ sends the Update, Esc/✕ cancels. Locked risk-sensitive fields stay
+ * attemptable on purpose — trying to save one surfaces the workflow validator's
+ * synchronous rejection right on the field (the field-locking demo beat).
+ */
+function EditableFact({
+  id,
+  label,
+  field,
+  value,
+  locked,
+  numeric,
+  onChanged,
+}: {
+  id: string;
+  label: string;
+  field: string;
+  value: string;
+  locked?: boolean;
+  numeric?: boolean;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
   const [result, setResult] = useState<{ accepted: boolean; reason?: string } | null>(null);
 
-  const submit = async () => {
-    const res = await api.edit(id, field, field === 'rate' || field === 'creditScore' ? Number(value) : value);
+  const start = () => {
+    setDraft('');
+    setResult(null);
+    setEditing(true);
+  };
+  const save = async () => {
+    const res = await api.edit(id, field, numeric ? Number(draft) : draft);
     setResult(res);
+    setEditing(false);
     onChanged();
   };
 
   return (
-    <div className="edit">
-      <h3>Edit (Update + validator)</h3>
-      <div className="row">
-        <select value={field} onChange={(e) => setField(e.target.value)}>
-          <option value="rate">rate{lockMark(state, 'rate')}</option>
-          <option value="creditScore">creditScore{lockMark(state, 'creditScore')}</option>
-          <option value="applicant">applicant</option>
-        </select>
-        <input value={value} placeholder="new value" onChange={(e) => setValue(e.target.value)} />
-        <button onClick={submit}>Apply edit</button>
-      </div>
+    <div className={`fact ${locked ? 'fact-locked' : ''}`}>
+      <b>{label}</b>
+      {editing ? (
+        <span className="fact-edit">
+          <input
+            autoFocus
+            value={draft}
+            placeholder={value}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+          />
+          <button className="mini" onClick={save} title="Save">
+            ✓
+          </button>
+          <button className="mini" onClick={() => setEditing(false)} title="Cancel">
+            ✕
+          </button>
+        </span>
+      ) : (
+        <span className="fact-val" onClick={start} title="Click to edit">
+          {value}
+          {locked ? ' 🔒' : ''} <span className="fact-pencil">✎</span>
+        </span>
+      )}
       {result && (
-        <p className={result.accepted ? 'ok' : 'rejected'}>
-          {result.accepted ? '✓ accepted' : `✗ rejected — ${result.reason}`}
-        </p>
+        <span className={result.accepted ? 'fact-ok' : 'fact-rejected'}>
+          {result.accepted ? '✓ saved' : `✗ ${result.reason ?? 'rejected'}`}
+        </span>
       )}
     </div>
   );
@@ -302,7 +342,7 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
           </div>
         </div>
         <a className="tlink" href={temporalUrl} target="_blank" rel="noreferrer">
-          Open in Temporal UI ↗
+          Open Workflow ↗
         </a>
       </div>
 
@@ -326,12 +366,29 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
       <ProgressStrip status={state.status} />
 
       <div className="facts">
-        <div><b>Income</b><span>{a.income ? `$${a.income.annual.toLocaleString()} (${a.income.docType})${lockMark(state, 'income')}` : '—'}</span></div>
-        <div><b>Customer</b><span>{a.customerRef ?? '—'}</span></div>
-        <div><b>Credit</b><span>{a.creditScore ?? '—'}{lockMark(state, 'creditScore')}</span></div>
-        <div><b>Risk</b><span>{a.riskTier ?? '—'}{lockMark(state, 'riskTier')}</span></div>
-        <div><b>Rate</b><span>{a.rate != null ? `${a.rate}%${lockMark(state, 'rate')}` : '—'}</span></div>
-        <div><b>Lender</b><span>{a.lenderPartner ?? '—'}</span></div>
+        <EditableFact id={state.id} label="Applicant" field="applicant" value={a.applicant} onChanged={onChanged} />
+        <div className="fact"><b>Income</b><span>{a.income ? `$${a.income.annual.toLocaleString()} (${a.income.docType})` : '—'}</span></div>
+        <div className="fact"><b>Customer</b><span>{a.customerRef ?? '—'}</span></div>
+        <EditableFact
+          id={state.id}
+          label="Credit"
+          field="creditScore"
+          numeric
+          value={a.creditScore != null ? String(a.creditScore) : '—'}
+          locked={state.lockedFields.includes('creditScore')}
+          onChanged={onChanged}
+        />
+        <div className="fact"><b>Risk</b><span>{a.riskTier ?? '—'}{state.lockedFields.includes('riskTier') ? ' 🔒' : ''}</span></div>
+        <EditableFact
+          id={state.id}
+          label="Rate"
+          field="rate"
+          numeric
+          value={a.rate != null ? `${a.rate}%` : '—'}
+          locked={state.lockedFields.includes('rate')}
+          onChanged={onChanged}
+        />
+        <div className="fact"><b>Lender</b><span>{a.lenderPartner ?? '—'}</span></div>
       </div>
 
       <div className="view-toggle">
@@ -345,8 +402,6 @@ export function ApplicationDetail({ state, onChanged }: { state: ApplicationStat
       </div>
 
       {view === 'after' ? <UnifiedTimeline timeline={state.timeline} /> : <SiloedLogs timeline={state.timeline} />}
-
-      <EditPanel id={state.id} state={state} onChanged={onChanged} />
 
       {state.status === 'SYNDICATION' && (
         <div className="row">
