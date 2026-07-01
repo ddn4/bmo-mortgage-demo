@@ -13,6 +13,10 @@ import {
 // Type-only import: erased at runtime, so no activity/Lambda/Node code leaks into
 // the workflow sandbox bundle (determinism — temporal-developer gotchas).
 import type * as activities from '@bmo/activities';
+
+// Re-exported so the worker (workflowsPath → this file) also registers the
+// singleton fault-control workflow.
+export { faultControlWorkflow } from './fault-control';
 import { editApplication, getApplication, lenderCallback, partnerIntake } from './definitions';
 
 // Standard pipeline activities: short timeout, default-ish retry.

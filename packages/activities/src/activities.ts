@@ -1,5 +1,6 @@
 import { ApplicationFailure, heartbeat, log } from '@temporalio/activity';
-import { BusinessError, LAMBDA, type Contact, type Decision, type IncomeDocType, type RiskTier } from '@bmo/shared';
+import { BusinessError, FAULT_CONTROL_WORKFLOW_ID, LAMBDA, type Contact, type Decision, type IncomeDocType, type RiskTier } from '@bmo/shared';
+import { getActivityClient } from './temporal';
 import type {
   CreditResponse,
   CustomerResponse,
@@ -66,6 +67,21 @@ export async function assignRate(input: {
   return invoke(LAMBDA.RATE, input);
 }
 
+/**
+ * Read the syndication-fault toggle from the control workflow's memo via
+ * describe() — worker-independent and cheap (no query, no cold-start). Defaults
+ * to off if the control workflow was never started or is unreachable.
+ */
+async function syndicationFaultOn(): Promise<boolean> {
+  try {
+    const client = await getActivityClient();
+    const desc = await client.workflow.getHandle(FAULT_CONTROL_WORKFLOW_ID).describe();
+    return Boolean((desc.memo as Record<string, unknown> | undefined)?.syndicationFault);
+  } catch {
+    return false;
+  }
+}
+
 export async function syndicateToLenderPartner(input: {
   applicationId: string;
   lenderPartner: string;
@@ -75,5 +91,9 @@ export async function syndicateToLenderPartner(input: {
   // worker is known to be alive (CLAUDE.md). A deeper checkpointing pass (resume
   // mid-handoff via heartbeat details) is future work.
   heartbeat(`handing off ${input.applicationId} to ${input.lenderPartner}`);
-  return invoke(LAMBDA.SYNDICATION, input);
+  // Inject the partner schema break when the fault is toggled on. The flag comes
+  // from the Temporal control workflow (works local + cloud); the business Lambda
+  // stays Temporal-free — it just reads `forceSchemaFault` from its payload.
+  const forceSchemaFault = await syndicationFaultOn();
+  return invoke(LAMBDA.SYNDICATION, { ...input, forceSchemaFault });
 }

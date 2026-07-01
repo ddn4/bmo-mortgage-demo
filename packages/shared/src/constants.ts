@@ -58,3 +58,11 @@ export const SEARCH_ATTRIBUTES: readonly string[] = [
   SEARCH_ATTR.APPLICANT,
   SEARCH_ATTR.DECISION,
 ];
+
+/**
+ * Singleton workflow holding the syndication-fault toggle — a Temporal-native
+ * control plane that works identically local and in cloud (no in-process control
+ * server, no AWS SSM). The API signals it to toggle and reads its memo; the
+ * syndication activity reads the memo to decide whether to inject the fault.
+ */
+export const FAULT_CONTROL_WORKFLOW_ID = 'bmo-fault-control';

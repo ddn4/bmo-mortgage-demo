@@ -11,6 +11,7 @@ export {
   RISK_SENSITIVE_FIELDS,
   SEARCH_ATTR,
   SEARCH_ATTRIBUTES,
+  FAULT_CONTROL_WORKFLOW_ID,
   workflowIdFor,
 } from './constants';
 export type { LambdaName } from './constants';

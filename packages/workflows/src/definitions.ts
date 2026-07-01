@@ -26,3 +26,7 @@ export const lenderCallback = defineSignal<[LenderCallback]>('lenderCallback');
  * existing one just records the touch. No queue, no DLQ, no lost messages.
  */
 export const partnerIntake = defineSignal<[{ source: string }]>('partnerIntake');
+
+/** Fault-control plane (SPEC §4.4): toggle + read the syndication-partner schema break. */
+export const setSyndicationFault = defineSignal<[boolean]>('setSyndicationFault');
+export const getSyndicationFault = defineQuery<boolean>('getSyndicationFault');

@@ -3,16 +3,15 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
-import { LAMBDA, SEARCH_ATTR, TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
+import { FAULT_CONTROL_WORKFLOW_ID, LAMBDA, SEARCH_ATTR, TASK_QUEUE, workflowIdFor, type Channel, type CreateApplicationInput, type IncomeDocType } from '@bmo/shared';
 // Type-only: arg/return typing without loading the workflow implementation here.
 import type { mortgageApplicationWorkflow } from '@bmo/workflows';
 // Runtime Query/Signal/Update definitions (safe to import outside a workflow).
-import { editApplication, getApplication, lenderCallback, partnerIntake } from '@bmo/workflows/dist/definitions';
+import { editApplication, getApplication, lenderCallback, partnerIntake, setSyndicationFault } from '@bmo/workflows/dist/definitions';
 import { getClient } from './temporal';
 
 const WORKFLOW_TYPE = 'mortgageApplicationWorkflow';
 const APP_ID_PREFIX = 'mortgage-app-';
-const WORKER_CONTROL_URL = process.env.WORKER_CONTROL_URL ?? 'http://localhost:8088';
 
 interface PendingActivity {
   activityType?: string;
@@ -339,19 +338,32 @@ async function main(): Promise<void> {
     return stuck;
   });
 
-  // Fault control plane (forwarded to the worker, which owns the in-process flag).
+  // Fault control plane — Temporal-native (SPEC §4.4): the state lives in a
+  // singleton control workflow's memo, so this works identically local + cloud.
+  // GET reads the memo via describe() (no worker needed — safe to poll under
+  // scale-to-zero); POST toggles via signalWithStart (starts the workflow if
+  // needed and delivers the toggle).
   app.get('/api/fault', async () => {
-    const r = await fetch(`${WORKER_CONTROL_URL}/control/fault`);
-    return r.json();
+    const client = await getClient();
+    try {
+      const desc = await client.workflow.getHandle(FAULT_CONTROL_WORKFLOW_ID).describe();
+      return { syndicationFault: Boolean((desc.memo as Record<string, unknown> | undefined)?.syndicationFault) };
+    } catch {
+      return { syndicationFault: false }; // control workflow not started yet
+    }
   });
 
   app.post('/api/fault', async (req) => {
-    const r = await fetch(`${WORKER_CONTROL_URL}/control/fault`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(req.body ?? {}),
+    const on = Boolean((req.body as { on?: boolean } | undefined)?.on);
+    const client = await getClient();
+    await client.workflow.signalWithStart('faultControlWorkflow', {
+      workflowId: FAULT_CONTROL_WORKFLOW_ID,
+      taskQueue: TASK_QUEUE,
+      args: [on],
+      signal: setSyndicationFault,
+      signalArgs: [on],
     });
-    return r.json();
+    return { syndicationFault: on };
   });
 
   // Edit = Update with validator. Returns synchronous accept/reject for the UI.

@@ -11,6 +11,7 @@
     "@bmo/shared": "*",
     "@bmo/lambdas": "*",
     "@temporalio/activity": "~1.18.1",
+    "@temporalio/client": "~1.18.1",
     "@aws-sdk/client-lambda": "^3.600.0"
   }
 }

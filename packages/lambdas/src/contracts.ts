@@ -68,6 +68,8 @@ export interface SyndicationRequest {
   applicationId: string;
   lenderPartner: string;
   summary: string;
+  /** Set by the orchestrator to simulate the partner's schema break (fault demo). */
+  forceSchemaFault?: boolean;
 }
 export interface SyndicationResponse {
   syndicationRef: string;
