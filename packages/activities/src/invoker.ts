@@ -1,5 +1,5 @@
-import { BusinessError, isBusinessErrorEnvelope, type LambdaName } from '@bmo/shared';
-import { handlers } from '@bmo/lambdas';
+import type { LambdaName } from '@bmo/shared';
+import { BusinessError, handlers, isBusinessErrorEnvelope } from '@bmo/lambdas';
 
 /**
  * The invoker abstraction (SPEC §4.3). Activities call `invoke(fnName, payload)`;
@@ -47,8 +47,8 @@ function cloudInvoker(): Invoker {
       // Typed business error returned by the handler — rethrow so the activity
       // translates it to a (non-)retryable ApplicationFailure, same as local.
       if (isBusinessErrorEnvelope(parsed)) {
-        const { type, message, retryable } = parsed.__businessError;
-        throw new BusinessError(type, message, retryable);
+        const { type, message } = parsed.__businessError;
+        throw new BusinessError(type, message);
       }
       return parsed as TRes;
     },

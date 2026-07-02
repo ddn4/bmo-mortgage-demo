@@ -1,4 +1,4 @@
-import { BusinessError, type BusinessErrorEnvelope } from '@bmo/shared';
+import { BusinessError, type BusinessErrorEnvelope } from './errors';
 import { intakeHandler } from './intake';
 import { incomeHandler } from './income';
 import { customerHandler } from './customer';
@@ -12,11 +12,12 @@ import { syndicationHandler } from './syndication';
  *
  * Each deployed function is independent (own handler export, log group, IAM) and
  * keeps ZERO Temporal dependency — exactly as if it predated Temporal (SPEC §4.3).
- * The invoke payload arrives as the Lambda `event`; the wrapper returns the
- * handler result, or a BusinessErrorEnvelope when the handler signals a typed
- * business error (so retryable/non-retryable classification survives the invoke
- * boundary — see the cloud invoker in @bmo/activities). Unexpected errors are
- * rethrown and surface as a Lambda FunctionError, which Temporal retries.
+ * Nothing here imports `@bmo/shared`, so the bundle carries no orchestration
+ * constants either. The invoke payload arrives as the Lambda `event`; the wrapper
+ * returns the handler result, or a BusinessErrorEnvelope carrying just the error
+ * `type` + message when the handler signals a typed business error. The Temporal
+ * activity — not this function — decides retryability from that type. Unexpected
+ * errors are rethrown and surface as a Lambda FunctionError, which Temporal retries.
  */
 function wrap<TReq, TRes>(
   fn: (payload: TReq) => Promise<TRes>,
@@ -26,7 +27,7 @@ function wrap<TReq, TRes>(
       return await fn(event);
     } catch (err) {
       if (err instanceof BusinessError) {
-        return { __businessError: { type: err.type, message: err.message, retryable: err.retryable } };
+        return { __businessError: { type: err.type, message: err.message } };
       }
       throw err;
     }

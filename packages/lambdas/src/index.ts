@@ -26,3 +26,4 @@ export const handlers: Record<LambdaName, (payload: any) => Promise<any>> = {
 };
 
 export * from './contracts';
+export * from './errors';

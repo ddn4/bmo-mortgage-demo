@@ -1,4 +1,4 @@
-import { BusinessError } from '@bmo/shared';
+import { BusinessError } from './errors';
 
 /** Deterministic, stable hash so credit/risk/customer "feel" stateful per applicant. */
 export function hashString(s: string): number {
@@ -36,6 +36,6 @@ export async function simulateWork(fnName: string): Promise<number> {
 export function maybeTransientFailure(fnName: string): void {
   const rate = Number(process.env.BMO_TRANSIENT_FAILURE_RATE ?? '0');
   if (rate > 0 && Math.random() < rate) {
-    throw new BusinessError('TransientDownstream', `${fnName}: transient downstream failure`, true);
+    throw new BusinessError('TransientDownstream', `${fnName}: transient downstream failure`);
   }
 }

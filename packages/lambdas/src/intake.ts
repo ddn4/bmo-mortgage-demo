@@ -1,4 +1,4 @@
-import { BusinessError } from '@bmo/shared';
+import { BusinessError } from './errors';
 import type { IntakeRequest, IntakeResponse } from './contracts';
 import { hashString, maybeTransientFailure, simulateWork } from './util';
 
@@ -7,7 +7,7 @@ export async function intakeHandler(req: IntakeRequest): Promise<IntakeResponse>
   await simulateWork('bmo-intake-fn');
   maybeTransientFailure('bmo-intake-fn');
   if (!req.applicant?.trim()) {
-    throw new BusinessError('ValidationError', 'applicant name is required', false);
+    throw new BusinessError('ValidationError', 'applicant name is required');
   }
   return {
     intakeId: `INT-${hashString(req.applicant) % 1_000_000}`,

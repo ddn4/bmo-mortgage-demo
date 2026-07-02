@@ -15,8 +15,6 @@ export {
   workflowIdFor,
 } from './constants';
 export type { LambdaName } from './constants';
-export { BusinessError, isBusinessErrorEnvelope } from './errors';
-export type { BusinessErrorType, BusinessErrorEnvelope } from './errors';
 export type {
   Channel,
   Decision,

@@ -1,5 +1,6 @@
 import { ApplicationFailure, heartbeat, log } from '@temporalio/activity';
-import { BusinessError, FAULT_CONTROL_WORKFLOW_ID, LAMBDA, type Contact, type Decision, type IncomeDocType, type RiskTier } from '@bmo/shared';
+import { FAULT_CONTROL_WORKFLOW_ID, LAMBDA, type Contact, type Decision, type IncomeDocType, type RiskTier } from '@bmo/shared';
+import { BusinessError, type BusinessErrorType } from '@bmo/lambdas';
 import { getActivityClient } from './temporal';
 import type {
   CreditResponse,
@@ -14,11 +15,15 @@ import { getInvoker, type Invoker } from './invoker';
 
 const invoker: Invoker = getInvoker();
 
+// Retryability is the ORCHESTRATOR's call, not the business Lambda's: permanent
+// failures (bad input / missing record) don't retry; transient issues and the
+// syndication schema break retry with backoff until they clear (CLAUDE.md, SPEC §4.3).
+const NON_RETRYABLE: ReadonlySet<BusinessErrorType> = new Set<BusinessErrorType>(['ValidationError', 'NotFound']);
+
 /**
- * Thin invoker wrapper. Calls the business Lambda and translates its Temporal-free
- * BusinessError into the right ApplicationFailure: nonRetryable when the error is
- * permanent (validation/schema/not-found), retryable otherwise. Transient errors
- * fall through to Temporal's default retry policy (CLAUDE.md, SPEC §4.3).
+ * Thin invoker wrapper. Calls the (Temporal-free) business Lambda and maps its
+ * typed BusinessError to the right ApplicationFailure — deciding retryability here,
+ * from the error `type`, so the Lambda itself stays vanilla.
  */
 async function invoke<TReq, TRes>(fn: Parameters<Invoker['invoke']>[0], payload: TReq): Promise<TRes> {
   try {
@@ -28,7 +33,7 @@ async function invoke<TReq, TRes>(fn: Parameters<Invoker['invoke']>[0], payload:
       throw ApplicationFailure.create({
         type: err.type,
         message: err.message,
-        nonRetryable: !err.retryable,
+        nonRetryable: NON_RETRYABLE.has(err.type),
       });
     }
     throw err;

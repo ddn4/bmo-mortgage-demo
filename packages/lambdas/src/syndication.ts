@@ -1,4 +1,4 @@
-import { BusinessError } from '@bmo/shared';
+import { BusinessError } from './errors';
 import type { SyndicationRequest, SyndicationResponse } from './contracts';
 import { hashString, maybeTransientFailure, simulateWork } from './util';
 
@@ -19,7 +19,6 @@ export async function syndicationHandler(req: SyndicationRequest): Promise<Syndi
     throw new BusinessError(
       'SchemaMismatch',
       "lender partner rejected payload: unexpected schema (field 'borrowerId' renamed)",
-      true,
     );
   }
   maybeTransientFailure('bmo-syndication-fn');
