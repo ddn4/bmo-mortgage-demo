@@ -1,4 +1,4 @@
-import { ApplicationFailure, condition, log, proxyActivities, setHandler, upsertSearchAttributes } from '@temporalio/workflow';
+import { ApplicationFailure, condition, log, proxyActivities, setHandler, sleep, upsertSearchAttributes } from '@temporalio/workflow';
 import {
   ApplicationStatus,
   RISK_SENSITIVE_FIELDS,
@@ -169,6 +169,11 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
 
   // --- Step 4: Underwriting decision (from the risk model) ---
   setStatus(ApplicationStatus.DECISION);
+  record('decision', 'STARTED', 'underwriting review');
+  // Brief durable-timer "review" so the Decision stage is a visible beat — the
+  // decision itself is derived from the risk model (no external work of its own),
+  // and a durable timer is the right primitive for a wait (no warm compute).
+  await sleep('3 seconds');
   state.decision = risk.recommendedDecision;
   upsertDecision();
   record('decision', 'COMPLETED', `decision=${state.decision}`);
@@ -181,6 +186,13 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   }
 
   // --- Step 4b: Rate assignment (locks risk-sensitive fields) ---
+  // Enter the RATE_ASSIGNED stage BEFORE the work so the status dwells during the
+  // assignRate activity — the same "set status, then do the work" pattern every
+  // other step uses. (Previously set only after the activity, so the stage flipped
+  // straight to SYNDICATION and never showed in the UI.) Lock the risk-sensitive
+  // fields on entry.
+  setStatus(ApplicationStatus.RATE_ASSIGNED);
+  state.lockedFields = [...RISK_SENSITIVE_FIELDS];
   record('rate', 'STARTED');
   const tRate = Date.now();
   const rate = await assignRate({
@@ -190,8 +202,6 @@ export async function mortgageApplicationWorkflow(input: CreateApplicationInput)
   });
   state.application.rate = rate.rate;
   state.application.lenderPartner = rate.lenderPartner;
-  setStatus(ApplicationStatus.RATE_ASSIGNED);
-  state.lockedFields = [...RISK_SENSITIVE_FIELDS];
   record('rate', 'COMPLETED', `${workedFor(tRate)} · rate=${rate.rate}% lender=${rate.lenderPartner} (risk-sensitive fields locked)`);
 
   // --- Step 5: Syndication to lender partner, then await funding callback ---
