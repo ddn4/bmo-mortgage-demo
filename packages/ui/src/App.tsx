@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { ApplicationDetail, ErrorBoundary, HeaderStatus, RunningList, SpecialistConsole, StatusHeader, TabBar } from './components';
 import type { AppListItem, ApplicationState, Fleet, StatusCounts, TriageItem } from './types';
+import logoUrl from './assets/temporal-lockup.svg';
 
 const EMPTY_COUNTS: StatusCounts = {
   INTAKE: 0,
@@ -13,6 +14,31 @@ const EMPTY_COUNTS: StatusCounts = {
   COMPLETED: 0,
   NEEDS_REVIEW: 0,
 };
+
+// Business-Lambda invocations Temporal has orchestrated, derived from the live
+// status distribution (no server call — computed from the same /api/status-counts
+// the header already polls). Each status implies the cumulative number of
+// business-Lambda calls made to reach it, per the workflow: intake(1) → income(1)
+// → customer+credit+risk(3, parallel) → [decision: durable timer, no Lambda] →
+// rate(1) → syndication(1) = 7 for a full happy-path run.
+// Approximate by design: a DECLINED app really stops at 5 (counted as 7 here), and
+// retries / the injected syndication fault add real invocations this model can't
+// see. Labeled "orchestrated" — a Temporal-native derivation, no CloudWatch.
+const INVOCATIONS_BY_STATUS: Record<keyof StatusCounts, number> = {
+  INTAKE: 1,
+  INCOME_VERIFICATION: 2,
+  CROSS_REFERENCE: 5,
+  DECISION: 5,
+  RATE_ASSIGNED: 6,
+  SYNDICATION: 7,
+  NEEDS_REVIEW: 7,
+  COMPLETED: 7,
+};
+const businessInvocations = (counts: StatusCounts): number =>
+  (Object.keys(INVOCATIONS_BY_STATUS) as (keyof StatusCounts)[]).reduce(
+    (sum, s) => sum + counts[s] * INVOCATIONS_BY_STATUS[s],
+    0,
+  );
 
 // Optimistic row shown the instant an app is created/burst, before it surfaces in
 // the eventually-consistent visibility list. `since` drives a safety-net expiry.
@@ -181,15 +207,13 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-bmo">BMO</span>
-          <span className="brand-x">×</span>
-          <span className="brand-capco">Capco</span>
-          <span className="brand-x">×</span>
-          <span className="brand-temporal">Temporal</span>
+        <img className="brand-logo" src={logoUrl} alt="Temporal" />
+        <div className="brand-divider" />
+        <div className="brand-product">
+          <div className="brand-title">BMO Mortgage Pipeline</div>
+          <div className="tagline">orchestrating BMO's existing AWS Lambdas</div>
         </div>
-        <div className="tagline">Mortgage pipeline — orchestrating BMO's existing AWS Lambdas</div>
-        <HeaderStatus fleet={fleet} faultOn={faultOn} onToggleFault={toggleFault} />
+        <HeaderStatus fleet={fleet} lambdas={businessInvocations(counts)} faultOn={faultOn} onToggleFault={toggleFault} />
       </header>
 
       <main className="layout">

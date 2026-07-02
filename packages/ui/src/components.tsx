@@ -655,31 +655,39 @@ export function ApplicationDetail({
 // ---------------------------------------------------------------------------
 
 /**
- * Ambient header status/controls: the live serverless-worker count (the
- * scale-to-zero headline, doubling as the AWS Lambda console link) and a compact
- * fault toggle. Sits in the top header so the left sidebar is the specialist's.
+ * Ambient header status/controls: two live counters mirroring the architecture —
+ * the serverless-worker count (workflow-queue pollers; 0 at idle, the scale-to-zero
+ * story) and the business-Lambda invocations Temporal has orchestrated — plus a
+ * compact fault toggle. Sits in the top header so the left sidebar is the
+ * specialist's.
  */
 export function HeaderStatus({
   fleet,
+  lambdas,
   faultOn,
   onToggleFault,
 }: {
   fleet: Fleet;
+  lambdas: number;
   faultOn: boolean;
   onToggleFault: (on: boolean) => void;
 }) {
   return (
     <div className="header-status">
-      <a
+      <span
         className="worker-pill"
-        href="https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions"
-        target="_blank"
-        rel="noreferrer"
-        title={`${fleet.workersRunning} serverless worker invocation(s) polling now · one worker Lambda, scales to zero · orchestrating ${fleet.businessLambdas} business Lambdas — open the AWS console`}
+        title={`${fleet.workersRunning} serverless worker invocation(s) polling now — one worker Lambda, scales to zero`}
       >
         <span className={fleet.workersRunning ? 'worker-dot live' : 'worker-dot'} />
-        <b>{fleet.workersRunning}</b> worker{fleet.workersRunning === 1 ? '' : 's'} · scale-to-zero ↗
-      </a>
+        <b>{fleet.workersRunning}</b> worker{fleet.workersRunning === 1 ? '' : 's'}
+      </span>
+      <span
+        className="lambda-pill"
+        title={`${lambdas} business-Lambda invocation(s) orchestrated across the pipeline (intake, income, customer, credit, risk, rate, syndication)`}
+      >
+        <span className="lambda-dot" />
+        <b>{lambdas}</b> lambda{lambdas === 1 ? '' : 's'}
+      </span>
       <button
         className={`fault-pill ${faultOn ? 'on' : ''}`}
         onClick={() => onToggleFault(!faultOn)}

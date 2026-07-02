@@ -22,7 +22,6 @@
   --teal: #19e3b1;
   --amber: #ffb547;
   --red: #ff5c6c;
-  --capco: #ff4d6a;
 
   --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
@@ -58,7 +57,7 @@ h3 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 
 /* ---- Command bar ---- */
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 1.4rem;
   padding: 1rem 1.6rem;
   border-bottom: 1px solid var(--line);
@@ -68,25 +67,27 @@ h3 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 
   top: 0;
   z-index: 10;
 }
-.brand { font-family: var(--display); font-weight: 700; font-size: 1.45rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.6rem; }
-.brand-bmo { color: var(--bmo); }
-.brand-capco { color: var(--capco); }
-.brand-temporal { color: var(--teal); }
-.brand-x { color: var(--line); font-weight: 400; font-size: 1rem; transform: translateY(-2px); }
+.brand-logo { height: 30px; width: auto; display: block; }
+.brand-divider { width: 1px; height: 34px; background: var(--line); flex: none; }
+.brand-product { display: flex; flex-direction: column; gap: 0.15rem; }
+.brand-title { font-family: var(--display); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; color: var(--bmo); line-height: 1.1; }
 .tagline { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); letter-spacing: 0.02em; }
 .tagline::before { content: '▸ '; color: var(--teal); }
 
-/* Header status cluster: live worker pill (doubles as AWS console link) + fault toggle */
+/* Header status cluster: two live counters (workers · lambdas) + fault toggle */
 .header-status { margin-left: auto; align-self: center; display: flex; align-items: center; gap: 0.7rem; }
-.worker-pill {
+.worker-pill, .lambda-pill {
   display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.75rem;
   border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
-  font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-decoration: none; white-space: nowrap;
+  font-family: var(--mono); font-size: 0.72rem; color: var(--muted); white-space: nowrap;
 }
 .worker-pill:hover { border-color: var(--teal); color: var(--ink); }
-.worker-pill b { font-family: var(--display); font-size: 0.95rem; color: var(--ink); }
+.lambda-pill:hover { border-color: var(--bmo); color: var(--ink); }
+.worker-pill b, .lambda-pill b { font-family: var(--display); font-size: 0.95rem; color: var(--ink); }
+.lambda-pill b { color: var(--bmo); }
 .worker-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .worker-dot.live { background: var(--teal); box-shadow: 0 0 8px var(--teal); animation: worker-pulse 1.6s ease-in-out infinite; }
+.lambda-dot { width: 7px; height: 7px; background: var(--bmo); transform: rotate(45deg); flex: none; box-shadow: 0 0 8px rgba(26, 143, 227, 0.5); }
 @keyframes worker-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .fault-pill {
   display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.75rem; cursor: pointer;
