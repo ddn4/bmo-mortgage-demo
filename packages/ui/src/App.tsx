@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { ApplicationDetail, ErrorBoundary, HeaderStatus, RunningList, SpecialistConsole, StatusHeader, TabBar } from './components';
 import type { AppListItem, ApplicationState, Fleet, StatusCounts, TriageItem } from './types';
@@ -42,6 +42,8 @@ export function App() {
   const [source, setSource] = useState('');
   // Temporal-UI deep-link base (local dev UI vs Temporal Cloud UI), from /api/config.
   const [temporalUiBase, setTemporalUiBase] = useState('http://localhost:8233/namespaces/default/workflows');
+  // Ids whose entrance animation has already played (so it plays exactly once).
+  const seenIds = useRef<Set<string>>(new Set());
 
   // The "Needs attention" filter has no single status → fetch the default list
   // (which already includes retrying-SYNDICATION and NEEDS_REVIEW rows) and filter
@@ -61,9 +63,11 @@ export function App() {
           for (const it of list) if (it.applicant) next[it.id] = it.applicant;
           return next;
         });
-        // Drop each optimistic row once its real one surfaces (or after ~15s, a
-        // safety net for a create that never appears).
-        setPending((prev) => prev.filter((p) => !list.some((it) => it.id === p.id) && Date.now() - p.since < 15000));
+        // Drop each optimistic row once its real one surfaces WITH a status (not
+        // just present — a freshly-indexed row has no applicationStatus yet, so
+        // handing off too early flips the row back to raw "Running"). ~15s expiry
+        // is a safety net for a create that never appears.
+        setPending((prev) => prev.filter((p) => !list.some((it) => it.id === p.id && it.status) && Date.now() - p.since < 15000));
       }),
       api.statusCounts().then(setCounts),
       api.triage().then(setTriage),
@@ -134,15 +138,44 @@ export function App() {
   }, []);
 
   const stuckIds = new Set(triage.map((t) => t.id));
-  const needsAttention = triage.length + counts.NEEDS_REVIEW;
-  // Optimistic rows only make sense in the default (in-flight) view; a stage/status
-  // filter wouldn't match a just-created INTAKE app anyway.
-  const pendingVisible = statusFilter === '' ? pending.filter((p) => !items.some((it) => it.id === p.id)) : [];
+  // Optimistic rows only make sense in the default (in-flight) view; keep each until
+  // its real row surfaces WITH a status (consistent with the reconcile above).
+  const pendingVisible = statusFilter === '' ? pending.filter((p) => !items.some((it) => it.id === p.id && it.status)) : [];
+  const pendingIds = new Set(pendingVisible.map((p) => p.id));
   const filtered =
     statusFilter === 'NEEDS_ATTENTION'
       ? items.filter((it) => stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW')
-      : items;
+      : // Hide a not-yet-statused real row while its optimistic row still covers it
+        // (avoids a duplicate id / double-count during the hand-off).
+        items.filter((it) => !pendingIds.has(it.id));
   const visibleItems = [...pendingVisible, ...filtered];
+
+  // Intake→Syndication (+ Needs-review) counts derived LOCALLY from the visible list
+  // in the default view, so they move in lockstep with the rows (no visibility lag,
+  // no "one workflow in two states"). Completed stays server-side (eventually
+  // consistent — acceptable). Filtered views show the full server distribution.
+  const headerCounts: StatusCounts =
+    statusFilter === ''
+      ? (() => {
+          const acc: StatusCounts = { ...EMPTY_COUNTS, COMPLETED: counts.COMPLETED };
+          for (const it of visibleItems) {
+            const s = (it.status ?? 'INTAKE') as keyof StatusCounts;
+            if (s !== 'COMPLETED' && s in acc) acc[s] += 1;
+          }
+          return acc;
+        })()
+      : counts;
+  const needsAttention = triage.length + headerCounts.NEEDS_REVIEW;
+
+  // Animate each row's entrance exactly once — track ids already shown, so polls
+  // (and reconciling optimistic → real rows) never re-trigger the animation.
+  const seen = seenIds.current;
+  const newIds = new Set(visibleItems.filter((it) => !seen.has(it.id)).map((it) => it.id));
+  // Mark them seen after render so the entrance animation plays exactly once.
+  useEffect(() => {
+    for (const it of visibleItems) seenIds.current.add(it.id);
+  });
+
   const tabs = [{ id: 'applications', label: 'Applications' }, ...openTabs.map((id) => ({ id, label: names[id] ?? `#${id}` }))];
 
   return (
@@ -180,8 +213,8 @@ export function App() {
           {activeTab === 'applications' ? (
             <ErrorBoundary label="Applications">
               <div className="card">
-                <StatusHeader counts={counts} needsAttention={needsAttention} active={statusFilter} onSelect={setStatusFilter} />
-                <RunningList items={visibleItems} stuckIds={stuckIds} onOpen={openApp} temporalUiBase={temporalUiBase} />
+                <StatusHeader counts={headerCounts} needsAttention={needsAttention} active={statusFilter} onSelect={setStatusFilter} />
+                <RunningList items={visibleItems} stuckIds={stuckIds} newIds={newIds} onOpen={openApp} temporalUiBase={temporalUiBase} />
               </div>
             </ErrorBoundary>
           ) : (

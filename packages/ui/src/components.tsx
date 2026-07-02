@@ -248,11 +248,13 @@ function ProgressStrip({
 export function RunningList({
   items,
   stuckIds,
+  newIds,
   onOpen,
   temporalUiBase,
 }: {
   items: AppListItem[];
   stuckIds: Set<string>;
+  newIds: Set<string>;
   onOpen: (id: string) => void;
   temporalUiBase: string;
 }) {
@@ -263,14 +265,18 @@ export function RunningList({
     <div className="run-list">
       {items.map((it, i) => {
         const stuck = stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW';
-        const label = it.status ? (STATUS_LABEL[it.status] ?? it.status) : (it.executionStatus ?? '—');
+        // A statusless in-flight row is a just-created app (its applicationStatus SA
+        // isn't indexed yet) → treat it as Intake rather than showing raw "Running".
+        const rowStatus = it.status ?? 'INTAKE';
+        const label = STATUS_LABEL[rowStatus] ?? rowStatus;
+        const isNew = newIds.has(it.id);
         return (
           <div
             key={it.workflowId}
-            className={`run-row ${stuck ? 'stuck' : ''}`}
-            // Staggered fade-in: rows are newest-first, so a burst (all at the top)
-            // cascades in; a single new row (index 0) appears immediately. Only new
-            // rows mount, so existing rows never re-animate on a poll.
+            className={`run-row ${stuck ? 'stuck' : ''} ${isNew ? 'is-new' : ''}`}
+            // Staggered fade-in for genuinely-new rows only (newest-first, so a burst
+            // cascades from the top; a single create is immediate). The `is-new`
+            // gate means polls/reconciles never re-trigger the animation.
             style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
             role="button"
             tabIndex={0}
@@ -281,7 +287,7 @@ export function RunningList({
           >
             <span className="mono run-id">{it.id}</span>
             <span className="run-applicant">{it.applicant ?? (it.channel === 'PARTNER_QUEUE' ? '(partner)' : '—')}</span>
-            <ProgressStrip status={it.status ?? ''} compact decision={it.decision} />
+            <ProgressStrip status={rowStatus} compact decision={it.decision} />
             <span className={`run-status ${stuck ? 'warn' : ''}`}>
               {stuck ? '⚠ ' : ''}
               {label}
