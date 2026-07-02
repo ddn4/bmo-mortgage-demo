@@ -1,10 +1,12 @@
 # BMO Mortgage Demo — Specification (for review)
 
-**Status:** Draft for review · **Audience for this doc:** Dan (Temporal SA), Rick (technical build),
-Hussain (business narrative, Capco) · **Last updated:** 2026-06-25
+**Status:** Built and **deployed to AWS + Temporal Cloud** — live at
+**https://bmo-mortgage.tmprl-demo.cloud**. · **Audience:** Dan (Temporal SA), Rick (technical build),
+Hussain (business narrative, Capco) · **Last updated:** 2026-07-02
 
-> This is a spec for review, not a final design. Open questions are tracked in §11. Please mark up
-> anything you want changed before we scaffold code.
+> This began as a review spec; it now reflects the **as-built** design. The remaining open items are
+> tracked in §11, and the click-by-click presenter flow lives in [DEMO.md](DEMO.md). Where this doc and
+> the code disagree, the code (and [README.md](README.md)) is authoritative — update this doc.
 
 ---
 
@@ -44,7 +46,7 @@ still keep the worker-on-Lambda layer **swappable** (see §6) for local dev and 
 |-------------|-------------------|------------------|
 | **Observability** | **Before/after, side by side:** today's siloed per-Lambda CloudWatch/Dynatrace logs (debugging across many files) vs. **one Temporal timeline** tracing a single application across all the isolated Lambdas. | Multi-file, siloed, per-Lambda debugging; no orchestration-level logging. |
 | **Resilience / "view & fix stuck work"** *(Hussain asked for this)* | Toggle a **syndication-partner schema break** → apps can't process → automatic retries with backoff → each blocked app is a **first-class, inspectable workflow** (full payload + event history) in a **triage view** where the operator **decides and resolves in place** (retry, or edit-and-resume). No lost state. | Messages dead in a **DLQ**, hand-rolled AWS retry libs, multi-file forensics. Ties to **$10M CAD/incident · $21K CAD/min**. |
-| **Scalability & cost** | Serverless worker **scales from zero**, absorbs a burst, returns to zero — plus a **cost panel** quantifying always-warm Lambdas (8–12 hrs/day, ~sec cold starts) vs. Temporal serverless over a representative day. | Always-warm / provisioned Lambdas, "primitive" auto-scaling, cold-start latency. |
+| **Scalability & cost** | Serverless worker **scales from zero**, absorbs a burst, returns to zero — the header **worker-pill** shows this live (real on cloud); the cost narrative (no always-warm Lambdas 8–12 hrs/day, no cold-start tax — pay for work, not idle capacity) is the talk track. | Always-warm / provisioned Lambdas, "primitive" auto-scaling, cold-start latency. |
 | **Skill gap** | **Code reveal:** the actual workflow source on screen — a short, linear, readable TS function any UI engineer can own — beside the retry/queue/DLQ/idempotency plumbing it deletes. | "Hire average engineers, write business logic, not durability code"; faster contractor onboarding. |
 | **Migration & maintainability** | Temporal calls *existing* Lambdas unchanged; adoption is incremental and additive. **Worker Versioning (PINNED)** ships new builds safely while applications are in-flight. | Big-bang rewrites; risky deploys with a rotating contractor team. |
 
@@ -74,7 +76,7 @@ Two operations, narrowed to **~5 meaningful steps** (vs. BMO's ~80 screens), cul
 - **Edit Application** (validated; demonstrates locking + resumption).
 - **Inject fault** (syndication schema break) and **clear fault**.
 - **Triage & resolve** a stuck application (retry / edit-and-resume) from the UI.
-- **Reveal workflow code** and open the **cost panel** for the talk-track beats.
+- **Reveal workflow code** — a toggle in the per-app detail tab — for the skill-gap talk track.
 - **Presenter / burst mode** for live scaling visuals.
 
 ---
@@ -103,7 +105,7 @@ decision: APPROVED | CONDITIONAL | DECLINED | null
 application: { id, applicant, contact, income, documents, customerRef, creditScore, riskTier, rate, lenderPartner }
 timeline: StepEvent[]   // per-step status, attempts, timestamps — feeds the observability view
 lockedFields: set once status >= RATE_ASSIGNED
-// surfaced as custom Search Attributes (status, channel, isStuck) for list/filter — see §4.6
+// surfaced as custom Search Attributes (status, channel, applicant, applicationDecision) — see §4.6
 ```
 
 ### 4.2 Edits — **Update with validator** (not Signal)
@@ -155,11 +157,17 @@ Each step is an activity that invokes a business Lambda through an **`invoker`**
 
 ### 4.4 Fault injection + recovery (the resilience moment)
 
-- UI "Inject fault" flips `bmo-syndication-fn` into **schema-break mode** (a control flag the
-  Lambda reads — env var / SSM param / a tiny control store).
-- Effect: `syndicateToLenderPartner` fails → Temporal retries with backoff (visible as "retrying"
-  in the per-app timeline and a **Needs-Review** queue) → workflow state is preserved, nothing lost.
-- "Clear fault" → next retry succeeds → workflow resumes and completes. State was never lost; no
+- The UI header **fault toggle** flips the syndication partner into **schema-break mode**.
+  Temporal-native control plane: state lives in a singleton **`faultControlWorkflow`**
+  (`bmo-fault-control`) mirrored to a **memo**. The API toggles it via `signalWithStart` and reads
+  the memo via `describe()` (worker-independent — safe to poll under scale-to-zero); the
+  `syndicateToLenderPartner` activity reads the memo and passes `forceSchemaFault` in the Lambda
+  payload, so `bmo-syndication-fn` breaks while staying **Temporal-free**. One mechanism, identical
+  local and in cloud — no in-process control server, no AWS SSM.
+- Effect: `syndicateToLenderPartner` fails → Temporal retries with backoff (visible as "retrying" in
+  the per-app timeline, the amber row highlight, and the **Needs attention** header filter) → workflow
+  state is preserved, nothing lost.
+- Clear the fault → next retry succeeds → workflow resumes and completes. State was never lost; no
   DLQ, no manual replumbing.
 - Deepest version (optional): show `temporal workflow reset` as an explicit "replay path."
 
@@ -178,9 +186,12 @@ behind a durable timer, so there is **no warm compute while waiting**.
 
 ### 4.6 Visibility — custom Search Attributes
 
-Upsert `applicationStatus`, `channel`, and `isStuck` as Search Attributes so the UI (and the Temporal
-UI) can list/filter applications — this powers the Triage view and the observability story ("show me
-everything stuck on syndication") without a bolt-on database.
+Upsert `applicationStatus`, `channel`, `applicant`, and `applicationDecision` as (Keyword) Search
+Attributes so the UI (and the Temporal UI) can list/filter applications and show the applicant name +
+decision without a bolt-on database — this powers the status-header stage counts/filter and the running
+list. "Stuck" is derived at read time from a workflow's pending-activity retries (not a stored
+attribute). Registered automatically on the local dev server (per-attribute); on Temporal Cloud they're
+created once via the `temporal-cloud` CLI (OperatorService self-registration is local-only).
 
 ---
 
@@ -192,27 +203,33 @@ React + TypeScript** (modern, polished, matches "team are UI engineers") talking
 API that holds the Temporal client and polls metrics. (Alternative: a single embedded HTML page
 like the reference repo — lower effort, less polish; see §11.)
 
-**Views:**
+**As-built layout** — the five concerns below are delivered in a consolidated layout (see
+[README](README.md) *What's on screen* and [DEMO.md](DEMO.md)):
 
-1. **Mortgage-specialist console** *(the "one web page" Rick described)* — create an application from
-   minimal data, then edit it; the front door that makes the demo tangible. Edits hit the Update
-   validator, so the locked-field rejection is shown right here.
-2. **Application timeline (observability)** — per-application, step-by-step across the isolated
-   Lambdas in one timeline; attempts, durations, current status, locked-field indicator. A
-   **before/after toggle** contrasts siloed per-Lambda logs with the single timeline. Deep-links to
-   the Temporal UI for the raw event history.
-3. **Operations / fleet (cost + scale)** — live worker-on-Lambda invocations, scale-to-zero, backlog,
-   sync-match %, in-flight applications; **burst N** control; a **cost panel** comparing always-warm
-   vs. serverless over a representative day.
-4. **Triage & resolve (resilience)** *(answers Hussain's explicit ask)* — every stuck application as a
-   first-class card: failure reason, **input payload, and event history** inline, with **Retry** and
-   **Edit-and-resume** actions — decide and fix without leaving the screen. Includes the fault toggle.
-5. **Code reveal** — a panel showing the actual `mortgageApplicationWorkflow` source for the skill-gap
-   talk track (readable TS vs. the plumbing it replaces).
+- **Header:** brand + a live **serverless-worker pill** (workers running now → scale-to-zero; links to
+  the AWS Lambda console) + a compact **fault toggle** pill.
+- **Left — Specialist console** *(the "one web page" Rick described)*: create from minimal data, push
+  from the **partner channel**, **burst N**, and **complete all at syndication**.
+- **Main — tabs:**
+  1. **Applications** (home): a dynamic **status header** — live count per pipeline stage, click a
+     segment to filter (Completed / Needs-attention reveal cleared or stuck apps) — over a **running
+     list** of in-flight + stuck applications that clears each app at `COMPLETED`. Rows show the
+     applicant, a compact progress strip (branched-past steps like rate/syndication on a DECLINED app
+     render **skipped**), and an **Open Workflow** deep link.
+  2. **Per-app detail tab** (open by clicking a row) — the observability view: **facts with inline
+     editing** (a locked risk-sensitive field shows its Update-validator rejection right on the field),
+     a **Before | After | Workflow code** toggle (siloed per-Lambda logs ↔ one Temporal timeline ↔
+     syntax-highlighted `mortgageApplicationWorkflow` source), a retry banner when stuck, and the lender
+     callback. Deep-links to the Temporal UI (base resolved per environment — local vs Cloud).
 
-**Presenter affordances:** burst create (e.g. 30–200), partner-channel push, fault inject/clear,
-triage actions, reset — all from the UI; a clean BMO/Capco/Temporal co-branded theme; large readable
-type for projection.
+The scale/cost story is the header worker pill (0 → N → 0 under burst; **real serverless scale-to-zero
+on cloud**) — the earlier illustrative cost panel was dropped. **Triage is not a separate panel:** stuck
+apps surface in the running list (amber) + the **Needs attention** filter, and you inspect/resolve them
+in the detail tab (retry banner + inline edit + Open Workflow).
+
+**Presenter affordances:** burst create (e.g. 30–200), partner-channel push, fault inject/clear (header
+pill), complete-all-at-syndication — all from the UI; a clean dark BMO/Capco/Temporal co-branded theme;
+large readable type for projection.
 
 ---
 
@@ -253,8 +270,9 @@ This local→cloud flow is exactly what was requested and is how the reference r
 
 > **Implemented (credential-free) in [`infra/`](infra/README.md):** SAM template (7 business Lambdas +
 > serverless worker Lambda + Temporal invoke role), the `@temporalio/lambda-worker` entrypoint, Dockerfile,
-> k8s manifests, and deploy scripts. Authored and locally verified where possible; not yet deployed. The
-> bullets below are the deploy-time runbook.
+> k8s manifests, and deploy scripts. **Deployed (2026-07)** to AWS acct 429214323166 / us-east-1 +
+> Temporal Cloud `ddn4-serverless-mortgage.sdvdw` + `sa-demo` EKS. The bullets below are the runbook
+> (also used to re-deploy).
 
 - **AWS account:** SA account **429214323166**. CLI creds via the JIT tool:
   `access account --aws-account-id 429214323166 --write`.
@@ -309,12 +327,16 @@ bmo-mortgage-demo/
    server; Create from the specialist console works end-to-end.
 3. **M2 — Edits + locking + queries; observability timeline + before/after; multi-channel Signal intake.**
 4. **M3 — Fault injection + recovery; Triage-&-resolve view (inspect payload/history, retry, edit-resume).**
-5. **M4 — Burst/presenter mode + cost panel + code-reveal; Search Attributes for filtering.**
+5. **M4 — Burst/presenter mode + code-reveal; Search Attributes for filtering.** (An illustrative cost
+   panel shipped here and was later dropped in favor of the live worker-pill.)
 6. **M5 — Cloud deploy:** business Lambdas + worker Lambda + Temporal Cloud + EKS UI; **serverless
    worker (confirmed)**, long-lived path kept ready as a safety net (§6).
 7. **M6 — Dress rehearsal:** co-branding, projector-friendly polish, run-of-show, failure drills.
 
-Target a rough first pass after the holiday period (per the outline); finalize timing from there.
+**Status:** M0–M5 **done** — built locally and **deployed to AWS + Temporal Cloud** (serverless workers
+auto-invoke + scale-to-zero, verified). Post-M5 the UI was reworked (status-header running list + per-app
+detail tabs + inline-edit + Temporal-native fault control) and redeployed. **M6** (dress rehearsal) is the
+remaining milestone.
 
 ---
 
@@ -327,8 +349,9 @@ Target a rough first pass after the holiday period (per the outline); finalize t
    15-app burst auto-scaled to 30+ concurrent worker invocations, all completing in ~40s. (An earlier
    pre-release scaler defect that suppressed auto-invocation was fixed server-side by the Serverless
    Workers team; no change was needed on our side.)
-2. **UI framework.** Vite+React+TS (recommended — polish, matches their team) vs. a single embedded
-   HTML page like the reference repo (faster, less polish). *Recommendation: Vite+React+TS.*
+2. **RESOLVED — UI framework: Vite + React + TS** (built). Polished, matches the customer's UI-engineer
+   team; a single embedded HTML page (the reference repo's approach) was the lower-effort alternative,
+   not taken.
 3. **RESOLVED — Real business Lambdas.** Build real, independently deployed, Temporal-free Lambdas
    that stand in for BMO's existing functions (we don't have theirs). Activities are thin invokers;
    the same handler code runs in-process / SAM Local for local dev. See §4.3.
@@ -357,7 +380,7 @@ A tight ~10–12 minute live flow; presenter drives from the UI, Hussain narrate
 | 6 | **Decision + lock** | Reach decision; assign rate; try an **edit to a locked field** → rejected | "The risk-integrity invariant is enforced by the workflow, synchronously — not scattered guard code." |
 | 7 | **Break syndication** | **Inject** the partner schema change | "A syndication partner changed the schema — the exact production incident you described." |
 | 8 | **Triage & fix** | Open **Triage**, inspect payload + history, **edit-and-resume** | "The visual tool you asked for: see it, decide, fix in place. No DLQ forensics. Stakes: $10M/incident, $21K/min." |
-| 9 | **Burst + cost** | **Burst N**; watch scale-from-zero; open the **cost panel** | "Serverless workers — no warm Lambdas 8–12 hrs/day, no cold-start tax. Here's the bill difference." |
+| 9 | **Burst + scale-to-zero** | **Burst N**; watch the header worker-pill climb from zero and return to zero | "Serverless workers scale from zero — no warm Lambdas 8–12 hrs/day, no cold-start tax. Pay for work, not idle capacity." |
 | 10 | **Code reveal** | Show the workflow source | "Readable TypeScript your UI engineers already own. Hire for business logic, not durability plumbing." |
 | 11 | **(Optional) safe deploy** | Note Worker Versioning / PINNED | "Ship new builds while applications are in flight — safe even with a rotating contractor team." |
 

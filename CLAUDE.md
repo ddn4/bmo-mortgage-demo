@@ -25,15 +25,16 @@ serverless-metrics visualization; we re-implement in TypeScript.
 2. **Orchestrate Lambda, don't replace it.** Business logic stays in (mock) BMO Lambdas; Temporal
    activities *invoke* them. We never port business logic into the workflow. This "Lambda-first
    guardrail" is fixed.
-3. **Serverless Workers (pre-release) — live demo to BMO is CONFIRMED.** It is the headline of the
-   cloud demo. The worker entrypoint still stays **swappable**: a `@temporalio/lambda-worker`
-   handler for the serverless story, and a long-lived `Worker.create()` for local dev (no
-   serverless locally) and as a live-demo **safety net**. Identical workflow/activity code behind
-   both. Never let serverless-only assumptions leak into workflow logic.
+3. **Serverless Workers (pre-release) — DEPLOYED and verified.** Live on Temporal Cloud + AWS Lambda:
+   the worker auto-invokes from zero and scales to zero (the headline cost story). The worker
+   entrypoint stays **swappable**: a `@temporalio/lambda-worker` handler (the deployed serverless
+   path) and a long-lived `Worker.create()` for local dev (no serverless locally) and as a live-demo
+   **safety net**. Identical workflow/activity code behind both. Never let serverless-only
+   assumptions leak into workflow logic.
 4. **Demo-drivable from the UI.** Create, Edit, fault-injection toggle, and burst/presenter mode
    are all triggered from the web UI — no terminal needed during a live demo.
 
-## Architecture (target)
+## Architecture (deployed)
 
 ```
 Browser (audience UI) ──HTTP──► demo-app API (TS/Fastify, on sa-demo EKS)
@@ -86,6 +87,12 @@ Browser (audience UI) ──HTTP──► demo-app API (TS/Fastify, on sa-demo E
   via heartbeat.
 - **Mark validation failures `nonRetryable`** (`ApplicationFailure` with a typed `ValidationError`);
   let transient downstream failures retry with backoff. No DLQs / hand-rolled retry libs.
+- **Fault injection is Temporal-native.** The syndication-partner schema break lives in a singleton
+  `faultControlWorkflow` (`bmo-fault-control`) whose flag is mirrored to a **memo**: the API toggles it
+  via `signalWithStart` and reads the memo via `describe()` (worker-independent, safe to poll under
+  scale-to-zero), and the syndication activity injects `forceSchemaFault` into the Lambda payload
+  (business Lambda stays Temporal-free). No in-process control server / SSM — identical local + cloud
+  (SPEC §4.4).
 - Use `workflowBundle` (not `workflowsPath`) for any deployed worker.
 
 ## Local development
@@ -105,8 +112,11 @@ WCI-driven Lambda invocation / scale-to-zero is exercised locally.
 
 ## Deploy (cloud phase) — see SPEC.md for the full runbook
 
-> Credential-free cloud artifacts are scaffolded in `infra/` (SAM, IAM, `lambda-worker` entrypoint,
-> Dockerfile, k8s, deploy scripts) — authored/verified locally, not deployed. See `infra/README.md`.
+> **DEPLOYED (2026-07).** The cloud artifacts in `infra/` (SAM, IAM, `lambda-worker` entrypoint,
+> Dockerfile, k8s, deploy scripts) are live: 7 business Lambdas + the serverless worker Lambda in
+> `us-east-1`, Temporal Cloud namespace `ddn4-serverless-mortgage.sdvdw`, UI on `sa-demo` EKS at
+> **https://bmo-mortgage.tmprl-demo.cloud**. The steps below are the runbook (also used to re-deploy).
+> See `infra/README.md`.
 
 1. AWS access: SA account **429214323166** (`access account --aws-account-id 429214323166 --write`
    for CLI creds). **Regions:** the Temporal Cloud namespace + business Lambdas + worker Lambda
