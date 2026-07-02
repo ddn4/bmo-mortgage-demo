@@ -105,7 +105,7 @@ business Lambda breaks on that field and stays Temporal-free.
 |-----|--------|
 | `BMO_FORCE_DECISION` | `APPROVED` \| `CONDITIONAL` \| `DECLINED` — force the underwriting outcome for a predictable demo. (DECLINED short-circuits after the decision, so rate/syndication show **skipped** in the UI.) |
 | `BMO_TRANSIENT_FAILURE_RATE` | `0..1` — inject random transient downstream failures so Temporal's retries are visible. |
-| `BMO_STEP_MIN_MS` / `BMO_STEP_MAX_MS` | Per-step simulated work range (default `700`/`2100` ≈ 0.7–2.1s, so transitions are observable). Set both to `0` for fast runs. |
+| `BMO_STEP_MIN_MS` / `BMO_STEP_MAX_MS` | Per-step simulated work range (default `3000`/`6000` ≈ 3–6s, so transitions are observable on a projector). Set both to `0` for fast runs. |
 | `WORKER_VERSIONING` | `true` to enable Worker Versioning (PINNED). Requires a current Worker Deployment Version. |
 | `MAX_CONCURRENT_ACTIVITIES` | Caps activity concurrency to *simulate* a single Lambda locally (default 5). |
 | `INVOKER_MODE` | `local` (default, in-process handlers) \| `cloud` (real `@aws-sdk/client-lambda` invoke). |
