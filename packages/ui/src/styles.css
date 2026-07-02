@@ -246,6 +246,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: 
 .run-status.warn { color: var(--amber); }
 .run-link { justify-self: end; white-space: nowrap; }
 .list-empty { padding: 1.4rem 0.4rem; }
+/* Staggered fade-in so new/optimistic rows cascade in instead of snapping (only
+   newly-mounted rows animate; existing rows are reused across polls). */
+@keyframes run-row-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.run-row { animation: run-row-in 0.28s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .run-row { animation: none; } }
 
 /* ---- Instrument readouts ---- */
 .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 1.1rem 0; }

@@ -88,7 +88,7 @@ export function SpecialistConsole({
   onBurst,
   onCallbackAll,
 }: {
-  onCreated: (id: string) => void;
+  onCreated: (app: { id: string; applicant?: string; channel: string }) => void;
   onBurst: (n: number) => void;
   onCallbackAll: () => Promise<void> | void;
 }) {
@@ -107,7 +107,7 @@ export function SpecialistConsole({
       const res = channel === 'specialist' ? await api.create(body) : await api.partner(body);
       setName('');
       setPhone('');
-      onCreated(res.id);
+      onCreated({ id: res.id, applicant: name || undefined, channel: channel === 'partner' ? 'PARTNER_QUEUE' : 'SPECIALIST' });
     } finally {
       setBusy(false);
     }
@@ -261,13 +261,17 @@ export function RunningList({
   }
   return (
     <div className="run-list">
-      {items.map((it) => {
+      {items.map((it, i) => {
         const stuck = stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW';
         const label = it.status ? (STATUS_LABEL[it.status] ?? it.status) : (it.executionStatus ?? '—');
         return (
           <div
             key={it.workflowId}
             className={`run-row ${stuck ? 'stuck' : ''}`}
+            // Staggered fade-in: rows are newest-first, so a burst (all at the top)
+            // cascades in; a single new row (index 0) appears immediately. Only new
+            // rows mount, so existing rows never re-animate on a poll.
+            style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
             role="button"
             tabIndex={0}
             onClick={() => onOpen(it.id)}

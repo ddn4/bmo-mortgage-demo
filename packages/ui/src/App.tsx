@@ -14,8 +14,22 @@ const EMPTY_COUNTS: StatusCounts = {
   NEEDS_REVIEW: 0,
 };
 
+// Optimistic row shown the instant an app is created/burst, before it surfaces in
+// the eventually-consistent visibility list. `since` drives a safety-net expiry.
+type PendingItem = AppListItem & { since: number };
+const makePending = (id: string, applicant: string | undefined, channel: string): PendingItem => ({
+  id,
+  workflowId: `mortgage-app-${id}`,
+  executionStatus: 'Running',
+  status: 'INTAKE',
+  channel,
+  applicant,
+  since: Date.now(),
+});
+
 export function App() {
   const [items, setItems] = useState<AppListItem[]>([]);
+  const [pending, setPending] = useState<PendingItem[]>([]); // optimistic rows shown immediately on create/burst
   const [names, setNames] = useState<Record<string, string>>({}); // id → applicant, accumulated for tab labels
   const [counts, setCounts] = useState<StatusCounts>(EMPTY_COUNTS);
   const [statusFilter, setStatusFilter] = useState(''); // '' | <STATUS> | 'NEEDS_ATTENTION'
@@ -47,6 +61,9 @@ export function App() {
           for (const it of list) if (it.applicant) next[it.id] = it.applicant;
           return next;
         });
+        // Drop each optimistic row once its real one surfaces (or after ~15s, a
+        // safety net for a create that never appears).
+        setPending((prev) => prev.filter((p) => !list.some((it) => it.id === p.id) && Date.now() - p.since < 15000));
       }),
       api.statusCounts().then(setCounts),
       api.triage().then(setTriage),
@@ -67,7 +84,8 @@ export function App() {
 
   const burst = useCallback(
     async (n: number) => {
-      await api.burst(n);
+      const res = await api.burst(n);
+      setPending((p) => [...res.apps.map((a) => makePending(a.id, a.applicant, 'SPECIALIST')), ...p]);
       await refreshList();
     },
     [refreshList],
@@ -117,10 +135,14 @@ export function App() {
 
   const stuckIds = new Set(triage.map((t) => t.id));
   const needsAttention = triage.length + counts.NEEDS_REVIEW;
-  const visibleItems =
+  // Optimistic rows only make sense in the default (in-flight) view; a stage/status
+  // filter wouldn't match a just-created INTAKE app anyway.
+  const pendingVisible = statusFilter === '' ? pending.filter((p) => !items.some((it) => it.id === p.id)) : [];
+  const filtered =
     statusFilter === 'NEEDS_ATTENTION'
       ? items.filter((it) => stuckIds.has(it.id) || it.status === 'NEEDS_REVIEW')
       : items;
+  const visibleItems = [...pendingVisible, ...filtered];
   const tabs = [{ id: 'applications', label: 'Applications' }, ...openTabs.map((id) => ({ id, label: names[id] ?? `#${id}` }))];
 
   return (
@@ -141,9 +163,10 @@ export function App() {
         <section className="col-left">
           <ErrorBoundary label="Specialist console">
             <SpecialistConsole
-              onCreated={() => {
-                // Stay on the list view after creating — the new app appears in the
-                // list; the user opens its detail tab by clicking the row.
+              onCreated={(app) => {
+                // Show the row immediately (stay on the list); it reconciles with the
+                // real one on the next poll.
+                setPending((p) => [makePending(app.id, app.applicant, app.channel), ...p]);
                 refreshList();
               }}
               onBurst={burst}

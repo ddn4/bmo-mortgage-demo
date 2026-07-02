@@ -149,7 +149,7 @@ async function main(): Promise<void> {
   app.post('/api/burst', async (req) => {
     const count = Math.max(1, Math.min(200, Number((req.body as { count?: number })?.count ?? 25)));
     const client = await getClient();
-    const ids = await Promise.all(
+    const apps = await Promise.all(
       Array.from({ length: count }, async (_, i) => {
         const id = randomUUID().slice(0, 8);
         const name = `${BURST_NAMES[i % BURST_NAMES.length]} ${i + 1}`;
@@ -158,10 +158,12 @@ async function main(): Promise<void> {
           taskQueue: TASK_QUEUE,
           args: [buildInput(id, { name, incomeDocType: i % 3 === 0 ? 'GIG' : 'T4' }, 'SPECIALIST')],
         });
-        return id;
+        return { id, applicant: name };
       }),
     );
-    return { started: ids.length };
+    // Return the ids + names so the UI can optimistically show the rows immediately
+    // (before they surface in the eventually-consistent visibility list).
+    return { started: apps.length, apps };
   });
 
   // Code reveal: the actual workflow source for the skill-gap talk track.
